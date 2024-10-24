@@ -1,9 +1,9 @@
 from collections.abc import Iterator, Iterable
-from typing import LiteralString, Self
+from typing import LiteralString, Self, List, Tuple
 
 
 class Cursor(Iterator):
-    def __init__(self) -> None:
+    def __init__(self, description: Tuple[tuple] = None) -> None:
         pass
     
     @property

@@ -4,7 +4,7 @@ from .exceptions import Error, Warning, InterfaceError, ProgramingError
 from pathlib import PurePath
 
 class Connection():
-    def __init__(self, path_file: str, user: Optional[str]=None, password: Optional[str]=None, host: Optional[str]=None, database:Optional[str]=None) -> None:
+    def __init__(self, path_file: str, user: Optional[str]=None, password: Optional[str]=None, host: Optional[str]=None) -> None:
         if isinstance(path_file, str) or isinstance(path_file, PurePath):
             self.path_file = path_file
         else:
@@ -13,7 +13,6 @@ class Connection():
         self.user = user
         self.password = password
         self.host = host
-        self.database = database
         self._closed = 0
 
     @property
@@ -32,8 +31,7 @@ class Connection():
     def cursor(self) -> Cursor: 
         if self.closed == 1:
             raise ProgramingError("Cannot operate on closed connection")
-        self.cursor = Cursor()
-        return self.cursor
+        return Cursor()
     
     def __enter__(self):
         return self
