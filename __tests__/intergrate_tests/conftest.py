@@ -1,5 +1,5 @@
 import pytest
-import dbapi2
+import dbcsv
 import time
 import pandas as pd
 import os
@@ -54,11 +54,20 @@ def mock_insert_data(mock_data_id):
     return (mock_data_id, "", "")
 
 @pytest.fixture(scope="function")
-def dbapi2_connections(mock_path_file):
+def dbapi2_connection1(mock_path_file):
     try:
-        conn = dbapi2.connect(mock_path_file)
-        conn2 = dbapi2.connect(mock_path_file)
-        yield conn, conn2
+        conn = dbcsv.connect(mock_path_file)
+        yield conn
+    except Exception as e:
+        print(e)
+    finally:
+        conn.close()
+        
+@pytest.fixture(scope="function")
+def dbapi2_connection2(mock_path_file):
+    try:
+        conn = dbcsv.connect(mock_path_file)
+        yield conn
     except Exception as e:
         print(e)
     finally:
