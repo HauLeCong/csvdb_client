@@ -20,7 +20,6 @@ def test_raise_exception_not_provide_path():
     with pytest.raises(Exception):
         assert dbcsv.connect()
         
-# User enter invalid path_file
 @pytest.mark.parametrize("path_file", [(123, ), (True, ), (object())])
 def test_raise_invalid_format(path_file):
     """
@@ -32,7 +31,6 @@ def test_raise_invalid_format(path_file):
     error_msg = e.value.args[0]
     assert error_msg == "Invalid path_file, must be either string or Path"
 
-# User enter valid path file
 @pytest.mark.parametrize("path_file", [("abc", ), (pathlib.Path("abc"), )])
 def test_valid_path_file(path_file):
     """
@@ -41,9 +39,8 @@ def test_valid_path_file(path_file):
     """
     path_file = "abc"
     conn = dbcsv.connect(path_file)
-    assert conn
+    assert isinstance(conn, Connection)
 
-# User retrieve cursor from connection
 def test_call_return_cursor(dbapi2_connection1):
     """
         5. >>> User try to create cursor obj
@@ -70,6 +67,7 @@ def test_bubble_up_error(dbapi2_connection1):
     with pytest.raises(ProgramingError) as e:
         with dbapi2_connection1 as conn:
             assert 1/0
+        assert conn.closed == 1
 
 def test_connection_closed_after_call_close(dbapi2_connection1):
     """
@@ -81,38 +79,68 @@ def test_connection_closed_after_call_close(dbapi2_connection1):
     assert dbapi2_connection1.closed == 1
 
 
-def test_operation_fail_after_connection_close(dbapi2_connection1):
+def test_create_cursor_fail_on_connection_closed(dbapi2_connection1):
+    """
+        9. >>> User try to operate on on closed connection
+    test_create_cursor_fail_on_connection_closed()
+    """
     assert dbapi2_connection1.closed == 0
     dbapi2_connection1.close()
     assert dbapi2_connection1.closed == 1
     with pytest.raises(ProgramingError) as e:
         assert dbapi2_connection1.cursor()
     error_msg = e.value.args[0]
-    assert error_msg == "Cannot operate on closed connection"
-
-# User close connection while not commit transaction
-def test_rollback_closed_connection(dbapi2_connection1):
-    assert False, "To be implement"
     
-# User commit transaction
-# Test only if database-engine support transaction else pass
+    assert error_msg == "Cannot create cursor on closed connection"
+ 
+def test_rollback_on_closed_connection(dbapi2_connection1, mock_insert_data, mocke, mocker):
+    """
+        11. User close connection without commit
+        test_rollback_on_closed_connection()
+    """
+    assert dbapi2_connection1.closed == 0
+    cursor = dbapi2_connection1.cursor()
+    mock_call = mocker.patch("dbapi2_connection1.rollback")
+    cursor.execute("insert into test values(?, ?, ?)", mock_insert_data)
+    start_row_num = cursor.row_number
+    # Call commit on close
+    dbapi2_connection1.close()
+    cursor.execute("select * from test where id=?", mock_insert_data[0])
+    assert cursor.row_number == start_row_num
+    assert mock_call.assert_called_once_with()
+    
+    
 def test_commit_insert_data(dbapi2_connection1, dbapi2_connection2, mock_insert_data):
+    """
+        12. User commit insert transaction
+        test_commit_insert_data()
+    """
     assert dbapi2_connection1.closed == 0
     cursor = dbapi2_connection1.cursor()
     cursor.execute("""Insert into test_table values(?) where id = ?""", mock_insert_data)
+    # Autoo commit = T|F
     dbapi2_connection1.commit()
     cursor2 = dbapi2_connection2.cursor()
     cursor2.execute("""Select * from test_table where id = ?""", (id, ))
     assert cursor.row_number == cursor2.row_number + 1
     
-def test_uncommit_insert_data(dbapi2_connection1, dbapi2_connection2, mock_insert_data):
+def test_havent_commit_insert_data(dbapi2_connection1, dbapi2_connection2, mock_insert_data):
+    """
+        13. User not uncommit data expect differnet result on 2 cursor
+        test_uncommit_insert_data()
+    """
     cursor = dbapi2_connection1.cursor()
     cursor.execute("""Insert into test values(?) where id = ?""", mock_insert_data)
+    # Autoo commit = T|F
     cursor2 = dbapi2_connection2.cursor()
     cursor2.execute("Select * from test_table where id = ?", (id, ))
     assert cursor.row_number > cursor2.row_number
 
 def test_commit_create_table(dbapi2_connection1, dbapi2_connection2):
+    """
+        14. User commit a create table command
+        test_commit_create_table()
+    """
     cursor = dbapi2_connection1.cursor()
     cursor.execute("Create table test (col1 string, col2 string)")
     dbapi2_connection1.commit()
@@ -120,6 +148,10 @@ def test_commit_create_table(dbapi2_connection1, dbapi2_connection2):
     assert cursor2.execute("Select * from test;")
     
 def test_uncommit_create_table(dbapi2_connection1, dbapi2_connection2):
+    """
+        15. User don't commit while create table
+        test_uncommit_create_table()
+    """
     cursor = dbapi2_connection1.cursor()
     cursor.execute("Create table test (col1 string, col2 string)")
     cursor2 = dbapi2_connection2.cursor()
@@ -128,21 +160,9 @@ def test_uncommit_create_table(dbapi2_connection1, dbapi2_connection2):
     error_msg = e.value.args[0]
     assert error_msg == "table not exists"
 
-# def test_commit_delete_data(data, id):
-    # pass
 
-# def test_commit_update_data(data):
-#     pass
-
-def test_uncommit_insert_data():
-    assert False, "Not implemented"
-
-def test_uncommit_update_date():
-    assert False, "Not implemented"
-
-def test_uncommit_delete_data():
-    assert False, "Not implemented"
-
-def test_rollback():
+def test_rollback_insert_data():
+    # Autoo commit = T|F
     assert False, "Not implemented"
     
+# If rollback can't commit anymore
