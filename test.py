@@ -1,9 +1,4 @@
+import requests
 
-import dbcsv
-import sqlite3
-
-con = dbcsv.connect('abc')
-cursor = con.cursor()
-assert cursor.execute("selec 1", None)
-
-con = sqlite3.connect()
+res = requests.get("https://example.com")
+res.status_code
