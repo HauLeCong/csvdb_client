@@ -128,7 +128,6 @@ class MockResponseSelect:
             },
         }
 
-
 class MockResponseCreateTable:
     @staticmethod
     def json():
