@@ -1,8 +1,5 @@
-from pathlib import Path
+from dbcsv_server.query_engine import QueryParser
 
-# path = Path("test/data")
-# path.mkdir(parents=True, exist_ok=True)
-
-from dbcsv_server.connection import ConnectionIdentity
-
-
+parser = QueryParser("abc~")
+parser.scan()
+print(parser.token)
