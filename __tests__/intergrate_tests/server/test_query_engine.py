@@ -3,6 +3,7 @@ import pytest
 import re
 
 from dbcsv_server.query_engine import ReservedWord, Token
+from dbcsv_server.ast_node import FactorNode
 
 # 
 @pytest.mark.parametrize("invalid_str", [1, None, True])
@@ -93,13 +94,20 @@ def test_return_expected_list_of_token(valid_query, expect_token_list):
     query_parser.scan()
     assert query_parser.token == expect_token_list
 
-@pytest.mark.parametrize("invalid_token", ["(", "ac", True])
+@pytest.mark.parametrize("invalid_token", ["a", True, None])
 def test_parse_factor_invalid_character(invalid_token):
     query_parser = QueryParser("select * from a")
-    
+    query_parser.current_token = invalid_token
+    with pytest.raises(ValueError) as e:
+        assert query_parser.parse_factor()
 
-def test_parse_factor_numeric():
-    pass
+@pytest.mark.parametrize("valid_token", [1, 10, 1.2]) 
+def test_parse_factor_numeric(valid_token):
+    query_parser = QueryParser("select * from c")
+    query_parser.current_token = valid_token
+    factor = query_parser.parse_factor()
+    assert isinstance(factor, FactorNode)
+    assert factor.expr == valid_token
 
 def test_parse_term():
     pass
