@@ -36,14 +36,14 @@ def test_return_invalid_identifier(invalid):
     query_parser = QueryParser(invalid)
     with pytest.raises(ValueError) as e:
         assert query_parser.scan()
-    assert e.value.args[0] == f"Invalid identifier {invalid.upper()}"
+    assert e.value.args[0] == f"Invalid token {invalid.upper()}"
 
 @pytest.mark.parametrize("invalid", ["select ''' "])
 def test_unclose_liter_string(invalid):
     query_parser = QueryParser(invalid)
     with pytest.raises(ValueError) as e:
         assert query_parser.scan()
-    assert e.value.args[0] == f"String value not closed"
+    assert e.value.args[0] == f"Literal not closed"
 
 @pytest.mark.parametrize("valid_query, expect_token_list", 
     [
@@ -58,17 +58,18 @@ def test_unclose_liter_string(invalid):
         (
             "select 1+2-3",[
                 (ReservedWord.SELECT, ),
-                (Token.NUMBER_LITERAL, "1"),
+                (Token.NUMBER_LITERAL, 1.0),
                 (Token.PLUS, ),
-                (Token.NUMBER_LITERAL, "2"),
+                (Token.NUMBER_LITERAL, 2.0),
                 (Token.MINUS, ),
-                (Token.NUMBER_LITERAL, "3")
+                (Token.NUMBER_LITERAL, 3.0)
             ]
         ),
         (
             "select 1, \'abc\' as test from a",[
                 (ReservedWord.SELECT, ),
-                (Token.NUMBER_LITERAL, "1"),
+                (Token.NUMBER_LITERAL, 1.0),
+                (Token.COMMA, ),
                 (Token.STRING_LITERAL, "ABC"),
                 (ReservedWord.AS, ),
                 (Token.INDENTIFIER, "TEST"),
@@ -83,9 +84,6 @@ def test_unclose_liter_string(invalid):
                 (Token.PLUS, ),
                 (Token.NUMBER_LITERAL, 3.5)
             ]
-        ),
-        (
-            "", []
         )
     ]
 )
@@ -94,24 +92,21 @@ def test_return_expected_list_of_token(valid_query, expect_token_list):
     query_parser.scan()
     assert query_parser.token == expect_token_list
 
-@pytest.mark.parametrize("invalid_token", ["a", True, None])
-def test_parse_factor_invalid_character(invalid_token):
-    query_parser = QueryParser("select * from a")
-    query_parser.current_token = invalid_token
+@pytest.mark.parametrize("invalid_query", ["1 + 2 + 3", "hello world"])
+def test_giving_invalid_query(invalid_query):
+    parser = QueryParser(invalid_query)
+    parser.scan()
     with pytest.raises(ValueError) as e:
-        assert query_parser.parse_factor()
+        assert parser.parse()
+    assert e.value.args[0] == f"Invalid query expect SELECT or CREATE TABLE command got f{parser.current_token}"
+    
+@pytest.mark.parametrize("mock_parser", ["select * from abc"], indirect = True)
+def test_call_parse_select_on_valid_select_clause(mock_parser):
+    mock_parser.scan()
+    assert mock_parser.parse()
 
-@pytest.mark.parametrize("valid_token", [1, 10, 1.2]) 
-def test_parse_factor_numeric(valid_token):
-    query_parser = QueryParser("select * from c")
-    query_parser.current_token = valid_token
-    factor = query_parser.parse_factor()
-    assert isinstance(factor, FactorNode)
-    assert factor.expr == valid_token
-
-def test_parse_term():
-    pass
-
-def test_parse_aritmethic():
-    pass
-
+@pytest.mark.parametrize("mock_parser", ["create table abc"], indirect=True)
+def test_call_parse_create_table_on_valid_query(mock_parser):
+    mock_parser.scan()
+    print(mock_parser.token)
+    assert mock_parser.parse()

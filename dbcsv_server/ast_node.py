@@ -51,11 +51,12 @@ class FromNode:
 @dataclass
 class ColumnListNode:
     """
-        `<column_list>` :: = `<column>`, `<column_list>` | `<column>`
+        `<column_list>` :: = `<column_list>`, `<column>` | `<column>`
     """
     type = "ColumnList"
-    expr: Union["ColumnNode","ColumnListNode"]
-    operator: Literal[","]
+    left: Union["ColumnNode","ColumnListNode"]
+    right: "ColumnNode"
+    operator: Literal[","] = None
 
 @dataclass
 class ColumnNode:
@@ -64,7 +65,7 @@ class ColumnNode:
     """
     type =  "Column"
     expr: Union["ExprNode", "ColumnWildCardNode", "ColumnNameNode"]
-    alias: Optional[str]
+    alias: Optional[str] = None
     
 @dataclass
 class ColumnWildCardNode:
@@ -100,8 +101,11 @@ class TableElementNode:
     
 @dataclass
 class ExprNode:
+    """
+        `<expr>` :: =  `<arimethic_node>` | `<logical_node>` | `<comparison_node>`
+    """
     type = "Expr"
-    value: Union["IdentifierNode", "LogicalNode", "ComparisionNode", "ArimethicNode"]
+    expr: Union["ArimethicNode", "LogicalNode", "ComparisionNode"]
 
 @dataclass
 class IdentifierNode:
@@ -118,7 +122,7 @@ class LogicalNode:
     """
     left: Union["LogicalTermNode", "LogicalNode"]
     right: "LogicalTermNode"
-    operator: Literal["OR"]
+    operator: Optional[Literal["OR"]]
     
 @dataclass
 class LogicalTermNode:
@@ -127,7 +131,7 @@ class LogicalTermNode:
     """
     left: Union["LogicalFactorNode", "LogicalTermNode"]
     right: "LogicalFactorNode"
-    operator: Literal["AND"]
+    operator: Optional[Literal["AND"]]
 
 @dataclass
 class LogicalFactorNode:
@@ -135,7 +139,7 @@ class LogicalFactorNode:
         `<logical_factor>` ::= ["NOT"] `<literal_boolean>` 
     """
     expr: "LiteralBoolean"
-    operator: Literal["NOT"] 
+    operator: Optional[Literal["NOT"]]
 
 @dataclass
 class ArimethicNode:
