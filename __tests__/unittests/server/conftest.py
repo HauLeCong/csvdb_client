@@ -1,6 +1,6 @@
 import pytest
 
-from dbcsv_server.query_engine import QueryParser
+from dbcsv_server.query_engine.parser import QueryParser
 
 class MocKQueryParser:
     

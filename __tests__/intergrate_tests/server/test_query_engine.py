@@ -1,9 +1,9 @@
-from dbcsv_server.query_engine import QueryParser
+from dbcsv_server.query_engine.parser import QueryParser
 import pytest
 import re
 
-from dbcsv_server.query_engine import ReservedWord, Token
-from dbcsv_server.ast_node import FactorNode
+from dbcsv_server.query_engine.parser import ReservedWord, Token
+from dbcsv_server.query_engine.ast_node import FactorNode
 
 # 
 @pytest.mark.parametrize("invalid_str", [1, None, True])

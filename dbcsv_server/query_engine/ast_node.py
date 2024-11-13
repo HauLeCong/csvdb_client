@@ -2,6 +2,8 @@
 from typing import Union, Literal, Optional
 from dataclasses import dataclass
 
+from .visitor import ASTHandler
+
 ComparisionOperator = Literal[">", "<", "=", "<>"]
 AddtionOperator = Literal["+", "-"]
 FactorOperator = Literal["*", "/"]
@@ -152,6 +154,9 @@ class ArimethicNode:
     left: Union["TermNode", "ArimethicNode"]
     right: "TermNode"
     operator: Optional["AddtionOperator"]
+    
+    def value(self, handler: ASTHandler):
+        return handler.visit(self)
     
 @dataclass
 class TermNode:

@@ -1,9 +1,13 @@
 
 import pytest
 from collections.abc import Iterator
+from typing import Tuple, List
 
-from dbcsv_server.query_engine import QueryParser
-from dbcsv_server.ast_node import FactorNode, TermNode, ArimethicNode
+from dbcsv_server.query_engine.parser import QueryParser
+from dbcsv_server.query_engine.ast_node import FactorNode, TermNode, ArimethicNode
+from dbcsv_server.query_engine.token import Token
+from dbcsv_server.query_engine.visitor import ASTHandler
+
 
 @pytest.mark.parametrize("valid_number", ["1.23", ".123", "123"])
 def test_scan_number_return_valid_number(valid_number):
@@ -87,28 +91,107 @@ def test_parse_aritmethic_single_digits(numeric, expected):
 def test_parse_arimethic_full_flow(valid_query):
     parser = QueryParser(valid_query)
     parser.scan()
-    print(parser.token)
     parser.iter_token = iter(parser.token)
     parser.advance_token()
     parser.advance_token()
     arimethic = parser.parse_arimethic()
     assert isinstance(arimethic, ArimethicNode)
     print(arimethic)
-    tree = {}
-    level = 0
-    def print_node(obj):
-        if not hasattr(obj, "left"):
-            # Also check if have right
-            print(f"level {level}:")
-            print(f"left {obj.left.name}")
-        else:
-            print(obj.left)
-            _hold = obj.left
-            print_node(_hold)
-    print_node(arimethic)
-    
-# visitor pattern
-# visit
-# get_hanler
-# visit node -> get handler -> handler() 
+    def print_tree(node):
+        level = 0
+        def print_node(obj, lvl) -> int:
+            if not hasattr(obj, "left"):
+                if hasattr(obj.expr, "left"):
+                    if obj.expr.right:
+                        lvl += 1
+                        print(f"level {lvl}:{obj.expr.left.__class__.__name__}{obj.expr.operator.value}{obj.expr.right.__class__.__name__}")
+                        print_node(obj.expr.left, lvl)
+                        print_node(obj.expr.right, lvl)
+                    else:
+                        lvl += 1
+                        print(f"level {lvl}:{obj.left.__class__.__name__}")
+                        print_node(obj.expr.left, lvl)
+                else:
+                    print(f"level {lvl}:{obj.expr}")
+            elif hasattr(obj, "left"):
+                if obj.right:
+                    lvl += 1
+                    print(f"level {lvl}:{obj.left.__class__.__name__}{obj.operator.value}{obj.right.__class__.__name__}")
+                    print_node(obj.left, lvl)
+                    print_node(obj.right, lvl)
+                else:
+                    lvl += 1
+                    print(f"level {lvl}:{obj.left.__class__.__name__}")
+                    print_node(obj.left, lvl)
+        print_node(node, level)
+    print_tree(arimethic)
 
+def test_visit_return_correct_hanlder():
+    ast_handler = ASTHandler()
+    handler = ast_handler.get_handler("Arimethic")
+    assert handler == ast_handler.handle_arimethic_node
+    handler = ast_handler.get_handler("Term")
+    assert handler == ast_handler.handle_term_node
+    handler = ast_handler.get_handler("Factor")
+    assert handler == ast_handler.handle_factor_node
+
+def test_handle_simple_factor_node():
+    factor = FactorNode(expr=10)
+    ast_handler = ASTHandler()
+    handler = ast_handler.get_handler("Factor")
+    value = handler(factor)
+    assert value == 10
+
+def test_handle_simple_term_node():
+    term = TermNode(left=TermNode(left=FactorNode(10), right=None, operator=None), right=FactorNode(2), operator=Token.ASTERISK)
+    ast_handler = ASTHandler()
+    handler = ast_handler.get_handler("Term")
+    value = handler(term)
+    assert value == 20
+    
+def test_handle_simple_arimethic_node():
+    arimethic = ArimethicNode(
+        left=ArimethicNode(
+            left=TermNode(
+                left=FactorNode(10), 
+                right=None, 
+                operator=None
+            ),
+            right = None,
+            operator= None
+        ),
+        right = TermNode(
+            left=FactorNode(2),
+            right=None,
+            operator=None    
+        ), 
+        operator=Token.PLUS)
+    ast_handler = ASTHandler()
+    handler = ast_handler.get_handler("Arimethic")
+    value = handler(arimethic)
+    assert value == 12
+    
+@pytest.mark.parametrize("valid_query, expected", [
+        ("select 1+2+3", 6), 
+        ("select 1*3+4", 7), 
+        ("select 7-3*4", -5), 
+        ("select 7-(5 +6)", -4),
+        ("select 1/4*5", 1.25),
+    ]
+)
+def test_return_arimethic_node_value(valid_query, expected):
+    parser = QueryParser(valid_query)
+    parser.scan()
+    parser.iter_token = iter(parser.token)
+    parser.advance_token()
+    parser.advance_token()
+    arimethic = parser.parse_arimethic()
+    print(arimethic)
+    assert isinstance(arimethic, ArimethicNode)
+    ast_handler = ASTHandler()
+    s = arimethic.value(ast_handler)
+    assert s == expected
+    
+    
+    
+    

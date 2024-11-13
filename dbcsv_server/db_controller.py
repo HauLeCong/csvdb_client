@@ -1,4 +1,4 @@
-from .query_engine import QueryParser, QueryPlanner, ExecutionPlan
+from .query_engine.parser import QueryParser, QueryPlanner, ExecutionPlan
 from .connection import ConnectionIdentity
 from .query_executor import QueryExecutor
 from .transaction_manager import TransactionManager

@@ -3,6 +3,7 @@ from typing import List
 from enum import Enum
 import re
 
+from .token import ReservedWord, Token
 from .ast_node import (
     AST, 
     SelectNode, 
@@ -18,34 +19,6 @@ from .ast_node import (
     FactorNode,
     ExprNode
 )
-    
-class ReservedWord(Enum):
-    SELECT = "SELECT"
-    CREATE = "CREATE"
-    FROM = "FROM"
-    TABLE = "TABLE"
-    WHERE = "WHERE"
-    AS = "AS"
-
-class Token(Enum):
-    PLUS = "+"
-    MINUS = "-"
-    DIVIDE = "/"
-    ASTERISK = "*"
-    GREAT_THAN = ">"
-    LESS_THAN = "<"
-    GREATE_THAN_EQUAL = ">="
-    LESS_THAN_EQUAL = "<="
-    EQUAL = "="
-    COMMA = ","
-    DOUBLE_EQUAL = "=="
-    LEFT_PAREN = "("
-    RIGHT_PAREN = ")"
-    STRING_LITERAL = "STRING_LITERAL"
-    NUMBER_LITERAL = "NUMBER_LITERAL"
-    ALIAS_NAME = "ALIAS_NAME"
-    INDENTIFIER = "INDENTIFIER"
-
 
 class QueryParser:
     """
@@ -306,23 +279,3 @@ class QueryParser:
     def parse_create_clause(self) -> CreateTableNode:
         pass
     
-
-class QueryPlanner:
-    """
-        This class convert a AST to plan of AST nodes
-    """
-    
-    def __init__(self):
-        pass
-        
-    def build(self, ast: AST) -> 'ExecutionPlan':
-        pass
-    
-class ExecutionPlan:
-    
-    def __init__(self, nodes: List["ExecutionNode"]):
-        pass
-    
-
-class ExecutionNode:
-    pass

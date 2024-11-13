@@ -2,7 +2,7 @@
 import pytest
 from dbcsv_server.connection import ConnectionIdentity
 from dbcsv_server.transaction_manager import TransactionManager
-from dbcsv_server.query_engine import QueryParser
+from dbcsv_server.query_engine.parser import QueryParser
 from functools import partial
 
 @pytest.fixture
