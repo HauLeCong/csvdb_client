@@ -12,7 +12,6 @@ class ASTHandler:
             return self.handle_logical_node
     
     def visit(self, node):
-        
         handler = self.get_handler(node.type)
         return handler(node)
         

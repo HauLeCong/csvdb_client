@@ -4,10 +4,37 @@ from collections.abc import Iterator
 from typing import Tuple, List
 
 from dbcsv_server.query_engine.parser import QueryParser
-from dbcsv_server.query_engine.ast_node import FactorNode, TermNode, ArimethicNode
+from dbcsv_server.query_engine.ast_node import FactorNode, TermNode, ArimethicNode, ColumnNode, ColumnListNode, ColumnNameNode, ColumnWildCardNode, SelectNode, FromNode, WhereNode
 from dbcsv_server.query_engine.token import Token
 from dbcsv_server.query_engine.visitor import ASTHandler
 
+def print_tree(node):
+        level = 0
+        def print_node(obj, lvl) -> int:
+            if not hasattr(obj, "left"):
+                if hasattr(obj.expr, "left"):
+                    if obj.expr.right:
+                        lvl += 1
+                        print(f"level {lvl}:{obj.expr.left.__class__.__name__}{obj.expr.operator.value}{obj.expr.right.__class__.__name__}")
+                        print_node(obj.expr.left, lvl)
+                        print_node(obj.expr.right, lvl)
+                    else:
+                        lvl += 1
+                        print(f"level {lvl}:{obj.left.__class__.__name__}")
+                        print_node(obj.expr.left, lvl)
+                else:
+                    print(f"level {lvl}:{obj.expr}")
+            elif hasattr(obj, "left"):
+                if obj.right:
+                    lvl += 1
+                    print(f"level {lvl}:{obj.left.__class__.__name__}{obj.operator.value}{obj.right.__class__.__name__}")
+                    print_node(obj.left, lvl)
+                    print_node(obj.right, lvl)
+                else:
+                    lvl += 1
+                    print(f"level {lvl}:{obj.left.__class__.__name__}")
+                    print_node(obj.left, lvl)
+        print_node(node, level)
 
 @pytest.mark.parametrize("valid_number", ["1.23", ".123", "123"])
 def test_scan_number_return_valid_number(valid_number):
@@ -80,7 +107,6 @@ def test_parse_aritmethic_single_digits(numeric, expected):
     parser.scan()
     parser.iter_token = iter(parser.token)
     parser.advance_token()
-    print(parser.token)
     arimethic = parser.parse_arimethic()
     assert isinstance(arimethic, ArimethicNode)
     assert isinstance(arimethic.left, TermNode)
@@ -96,34 +122,6 @@ def test_parse_arimethic_full_flow(valid_query):
     parser.advance_token()
     arimethic = parser.parse_arimethic()
     assert isinstance(arimethic, ArimethicNode)
-    print(arimethic)
-    def print_tree(node):
-        level = 0
-        def print_node(obj, lvl) -> int:
-            if not hasattr(obj, "left"):
-                if hasattr(obj.expr, "left"):
-                    if obj.expr.right:
-                        lvl += 1
-                        print(f"level {lvl}:{obj.expr.left.__class__.__name__}{obj.expr.operator.value}{obj.expr.right.__class__.__name__}")
-                        print_node(obj.expr.left, lvl)
-                        print_node(obj.expr.right, lvl)
-                    else:
-                        lvl += 1
-                        print(f"level {lvl}:{obj.left.__class__.__name__}")
-                        print_node(obj.expr.left, lvl)
-                else:
-                    print(f"level {lvl}:{obj.expr}")
-            elif hasattr(obj, "left"):
-                if obj.right:
-                    lvl += 1
-                    print(f"level {lvl}:{obj.left.__class__.__name__}{obj.operator.value}{obj.right.__class__.__name__}")
-                    print_node(obj.left, lvl)
-                    print_node(obj.right, lvl)
-                else:
-                    lvl += 1
-                    print(f"level {lvl}:{obj.left.__class__.__name__}")
-                    print_node(obj.left, lvl)
-        print_node(node, level)
     print_tree(arimethic)
 
 def test_visit_return_correct_hanlder():
@@ -186,12 +184,64 @@ def test_return_arimethic_node_value(valid_query, expected):
     parser.advance_token()
     parser.advance_token()
     arimethic = parser.parse_arimethic()
-    print(arimethic)
     assert isinstance(arimethic, ArimethicNode)
     ast_handler = ASTHandler()
     s = arimethic.value(ast_handler)
     assert s == expected
     
+@pytest.mark.parametrize("valid_query", [
+    "select * from table", 
+    "select abc as a from table", 
+    """select "abc" as "a" from table """
+    ]
+)
+def test_parse_column(valid_query):
+    parser = QueryParser(valid_query)
+    parser.scan()
+    parser.iter_token = iter(parser.token)
+    parser.advance_token()
+    parser.advance_token()
+    column_node = parser.parse_column()
+    assert isinstance(column_node, ColumnNode)
     
+@pytest.mark.parametrize("valid_query", [
+        # "select a, b, c as c1 from table",
+        "select 1 + 2 + 3, a, c from table"
+    ]
+)
+def test_parse_column_list(valid_query):
+    parser = QueryParser(valid_query)
+    parser.scan()
+    parser.iter_token = iter(parser.token)
+    parser.advance_token()
+    parser.advance_token()
+    print(parser.current_token)
+    column_list_node = parser.parse_column_list()
+    # print(parser.token)
+    # print(column_list_node)
+    # print_tree(column_list_node)
+    assert isinstance(column_list_node, ColumnListNode)
     
+@pytest.mark.parametrize("from_clause", ["from abc", """from "xyz" """])
+def test_parse_from_clause(from_clause):
+    parser = QueryParser(from_clause)
+    parser.scan()
+    parser.iter_token = iter(parser.token)
+    parser.advance_token()
+    parser.advance_token()
+    from_clause = parser.parse_from_clause()
+    print(from_clause)
+    assert isinstance(from_clause, FromNode)
     
+@pytest.mark.parametrize("select_query", [
+    "select a, b, c, 1+2+3 from xyz"
+])
+def test_parse_select(select_query):
+    parser = QueryParser(select_query)
+    parser.scan()
+    parser.iter_token = iter(parser.token)
+    parser.advance_token()
+    parser.advance_token()
+    select_clause = parser.parse_select_clause()
+    print(select_clause)
+    assert isinstance(select_clause, SelectNode)

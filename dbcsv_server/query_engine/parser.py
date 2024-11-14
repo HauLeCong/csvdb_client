@@ -17,7 +17,9 @@ from .ast_node import (
     LogicalNode,
     TermNode,
     FactorNode,
-    ExprNode
+    ExprNode, 
+    WhereNode,
+    FromNode
 )
 
 class QueryParser:
@@ -68,11 +70,11 @@ class QueryParser:
             _abc is valid
             "abc" is valid
         """
-        def scan_util(s, end_reg):
+        def scan_until(s, end_reg):
             self.current_character = next(self.iter_query_string)
             if end_reg.search(self.current_character):
                 return s
-            return scan_util(s + self.current_character, end_reg)
+            return scan_until(s + self.current_character, end_reg)
         
         _whole_string = ""
         if self.current_character == "\"":
@@ -80,11 +82,13 @@ class QueryParser:
             # The first character is the " then we only care about the endclose "
             # Keep scan until meet "
             try:  
-                _whole_string = scan_util(self.current_character, re.compile(r"\""))
+                _whole_string = scan_until(self.current_character, re.compile(r"\""))
+                # Consume " so that we can continue to next character
+                self.current_character = next(self.iter_query_string)
                 return _whole_string
             except StopIteration:
                 raise ValueError(f"Invalid token string was not closed")
-        return scan_util(_whole_string + self.current_character, re.compile(r"[ \t\r\n\,]"))
+        return scan_until(_whole_string + self.current_character, re.compile(r"[ \t\r\n\,]"))
          
     def scan(self):
         """
@@ -119,7 +123,7 @@ class QueryParser:
                         if re.search(r"[0-9.]", self.current_character):
                             whole_number = self.scan_number(self.current_character)
                             if not re.search(r"([0-9]+(\.[0-9]+)?|\.[0-9]+)$", whole_number):
-                                raise ValueError(f"Invalid token {whole_number}")
+                                raise ValueError(f"Invalid token [{whole_number}]")
                             self.token.append((Token.NUMBER_LITERAL, float(whole_number)))
                             continue
                         # Identifier
@@ -130,9 +134,9 @@ class QueryParser:
                             else:
                                 # Check again if they are valid regex for identifier 
                                 if not re.search("^[^\d\W]\w*\Z", whole_word):
-                                    raise ValueError(f"Invalid token {whole_word}")
+                                    raise ValueError(f"Invalid token [{whole_word}]")
                                 self.token.append((Token.INDENTIFIER, whole_word))
-                                
+                                continue   
                         # Ignore character space|\t|\r\n
                         elif re.search(r"[ \t\r\n]", self.current_character):
                             if re.search(r"[ \r\n]", self.current_character):
@@ -184,36 +188,56 @@ class QueryParser:
         Parse token to SelectNode
         """
         # Check nothing so don't advance
-        column_list = self.parse_column_list()
-        from_clause = self.parse_from_clause()
-        where_clause = self.parse_where_clause()
-        return SelectNode(column_list=column_list, from_clause=from_clause, where_clause=where_clause)
+        column_list = self.parse_column_list() 
+        from_clause = None
+        where_clause = None
+        if self.match_token(ReservedWord.FROM):
+            self.advance_token()
+            from_clause = self.parse_from_clause()
+            if self.match_token(ReservedWord.WHERE):
+                self.advance_token()
+                where_clause = self.parse_where_clause()
+        return SelectNode(
+                    column_list=column_list, 
+                    from_clause=from_clause, 
+                    where_clause=where_clause
+                )
         
     def parse_column_list(self) -> ColumnListNode:
         """
         Parse token to columnlist node
         """
         # 
-        self.parse_column()
-    
+        current_left = ColumnListNode(left=self.parse_column(), right=None, operator=None)
+        print(self.current_token)
+        while self.match_token(Token.COMMA): 
+            operator = self.current_token[0]
+            self.advance_token()
+            previous_left = current_left
+            current_left = ColumnListNode(left=previous_left, right=self.parse_column(), operator=operator)
+        return current_left   
+        
     def parse_column(self) -> ColumnNode:
         """
         Parse token to ColumnNode
         """
-        self.advance_token()
         if self.match_token(Token.ASTERISK):
-            column_node = ColumnNode(expr=self.parse_column_wild_card)
+            column_node = ColumnNode(expr=self.parse_column_wild_card())
         elif self.match_token(Token.INDENTIFIER):
             column_node = ColumnNode(expr=self.parse_column_name())
-            if self.match_token(Token.ALIAS_NAME):
-                column_node.alias = self.current_token
+            if self.match_token(ReservedWord.AS):
+                self.advance_token()
+                column_node.alias = self.current_token[1]
+                self.advance_token()
         else:
             column_node = ColumnNode(expr = self.parse_expr())
+        return column_node
 
     def parse_expr(self) -> ExprNode:
         """
             Parse expression from token list
             This is LL(0) so we try to parse one by one until all fail or one success by order
+            arimethic -> logical -> comparision
         """
         # Try arimethic first then logical then comparision 
         for _parse in [self.parse_arimethic, self.parse_logical, self.parse_commparision]:
@@ -265,17 +289,23 @@ class QueryParser:
         return factor
     
     def parse_column_name(self) -> ColumnNameNode:
-        pass
+        column_name = ColumnNameNode(expr=self.current_token[1])
+        self.advance_token()
+        return column_name
     
     def parse_column_wild_card(self) -> ColumnWildCardNode:
-        pass
-     
-    def parse_from_clause(self):
-        pass
+        column_wild_card =  ColumnWildCardNode()
+        self.advance_token()
+        return column_wild_card
+        
+    def parse_from_clause(self) -> FromNode:
+        if self.match_token(Token.INDENTIFIER):
+            return FromNode(expr=self.current_token[1])
+        return None
     
-    def parse_where_clause(self):
+    def parse_where_clause(self) -> WhereNode:
         pass
-    
+               
     def parse_create_clause(self) -> CreateTableNode:
         pass
     
