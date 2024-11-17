@@ -4,9 +4,22 @@ from collections.abc import Iterator
 from typing import Tuple, List
 
 from dbcsv_server.query_engine.parser import QueryParser
-from dbcsv_server.query_engine.ast_node import FactorNode, TermNode, ArimethicNode, ColumnNode, ColumnListNode, ColumnNameNode, ColumnWildCardNode, SelectNode, FromNode, WhereNode
+from dbcsv_server.query_engine.ast_node import (
+    FactorNode, 
+    TermNode, 
+    ArimethicNode, 
+    ColumnNode, 
+    ColumnListNode, 
+    ColumnNameNode, 
+    ColumnWildCardNode, 
+    SelectNode, 
+    FromNode, 
+    WhereNode, 
+    ExprNode
+) 
 from dbcsv_server.query_engine.token import Token
-from dbcsv_server.query_engine.visitor import ASTHandler
+from dbcsv_server.query_engine.planner import QueryPlanner
+from dbcsv_server.query_engine.visitor import ASTPrinter
 
 def print_tree(node):
         level = 0
@@ -125,7 +138,7 @@ def test_parse_arimethic_full_flow(valid_query):
     print_tree(arimethic)
 
 def test_visit_return_correct_hanlder():
-    ast_handler = ASTHandler()
+    ast_handler = QueryPlanner()
     handler = ast_handler.get_handler("Arimethic")
     assert handler == ast_handler.handle_arimethic_node
     handler = ast_handler.get_handler("Term")
@@ -135,14 +148,14 @@ def test_visit_return_correct_hanlder():
 
 def test_handle_simple_factor_node():
     factor = FactorNode(expr=10)
-    ast_handler = ASTHandler()
+    ast_handler = QueryPlanner()
     handler = ast_handler.get_handler("Factor")
     value = handler(factor)
     assert value == 10
 
 def test_handle_simple_term_node():
     term = TermNode(left=TermNode(left=FactorNode(10), right=None, operator=None), right=FactorNode(2), operator=Token.ASTERISK)
-    ast_handler = ASTHandler()
+    ast_handler = QueryPlanner()
     handler = ast_handler.get_handler("Term")
     value = handler(term)
     assert value == 20
@@ -164,7 +177,7 @@ def test_handle_simple_arimethic_node():
             operator=None    
         ), 
         operator=Token.PLUS)
-    ast_handler = ASTHandler()
+    ast_handler = QueryPlanner()
     handler = ast_handler.get_handler("Arimethic")
     value = handler(arimethic)
     assert value == 12
@@ -185,7 +198,7 @@ def test_return_arimethic_node_value(valid_query, expected):
     parser.advance_token()
     arimethic = parser.parse_arimethic()
     assert isinstance(arimethic, ArimethicNode)
-    ast_handler = ASTHandler()
+    ast_handler = QueryPlanner()
     s = arimethic.value(ast_handler)
     assert s == expected
     
@@ -245,3 +258,78 @@ def test_parse_select(select_query):
     select_clause = parser.parse_select_clause()
     print(select_clause)
     assert isinstance(select_clause, SelectNode)
+
+def test_return_value_column_node():
+    c = ColumnNode(
+        expr=ExprNode(
+            expr=ArimethicNode(
+                left=ArimethicNode(
+                    left=ArimethicNode(
+                        left=TermNode(
+                            left=FactorNode(expr=1.0), 
+                            right=None, 
+                            operator=None
+                        ), 
+                        right=None, 
+                        operator=None
+                    ), 
+                    right=TermNode(
+                        left=FactorNode(expr=2.0), 
+                        right=None, operator=None), 
+                    operator=Token.PLUS
+                    ), 
+                right=TermNode(
+                    left=FactorNode(expr=3.0),
+                    right=None, operator=None
+                    ), 
+                operator=Token.PLUS
+            )
+        ), 
+        alias=None)   
+    query_planner = QueryPlanner()
+    result = query_planner.visit(c)
+    print(result)
+    
+def test_return_value_column_name_node():
+    column_node = ColumnNameNode(expr="A")
+    query_planner = QueryPlanner()
+    c = query_planner.visit(column_node)
+    assert c == "A"
+    
+@pytest.mark.parametrize("valid_query", ["select a, b, 1 + 3  * 5 from xyz", "select 1 + 3 * 4, c, d from xyz"])
+def test_return_column_list_node_value(valid_query):
+    parser = QueryParser(valid_query)
+    parser.scan()
+    parser.iter_token =  iter(parser.token)
+    parser.advance_token()
+    parser.advance_token()
+    column_list_node = parser.parse_column_list()
+    planner = QueryPlanner()
+    column_list = planner.visit(column_list_node)
+    print_tree(column_list_node)
+    print(column_list)
+    
+@pytest.mark.parametrize("valid_query", ["select a, b, 1+2+3 from xyz"])
+def test_return_select_node_value(valid_query):
+    parser = QueryParser(valid_query)
+    parser.scan()
+    parser.iter_token = iter(parser.token)
+    parser.advance_token()
+    parser.advance_token()
+    select_node = parser.parse_select_clause()
+    planner = QueryPlanner()
+    select = planner.visit(select_node)
+    print(select)
+    assert isinstance(select_node, SelectNode)    
+    
+@pytest.mark.parametrize("valid_query", ["select 1 + 3 - 4 * 2 from xyz"])
+def test_calculate_height_of_node(valid_query):
+    parser = QueryParser(valid_query)
+    parser.scan()
+    parser.iter_token = iter(parser.token)
+    parser.advance_token()
+    parser.advance_token()
+    arimethic_node = parser.parse_arimethic()
+    print(arimethic_node)
+    ast_printer = ASTPrinter()
+    ast_printer.visit(arimethic_node, "1", 0)

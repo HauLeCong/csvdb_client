@@ -1,55 +1,56 @@
 
-class ASTHandler:
+class ASTPrinter:
     
-    def get_handler(self, node_type):
-        if node_type == "Arimethic":
-            return self.handle_arimethic_node
-        elif node_type == "Factor":
-            return self.handle_factor_node
-        elif node_type == "Term":
-            return self.handle_term_node
-        elif node_type == "Logical":
-            return self.handle_logical_node
+    def __init__(self):
+        self.tree_level = 1
+        self.node_prefix = "+-"
     
-    def visit(self, node):
-        handler = self.get_handler(node.type)
-        return handler(node)
-        
-    def handle_logical_node(self, logical_node):
-        #left, right, operator
-        left_value = self.visit(logical_node.left)
-        right_value = self.visit(logical_node.right)
-        if logical_node.operator == "AND":
-            return left_value and right_value
-        
-    def handle_arimethic_node(self, arimethic_node):
-        print(arimethic_node)
-        left_value = self.visit(arimethic_node.left)
+    def visit(self, node, *args, **kwargs):
+        handler = self.get_node_handler(node.type)
+        return handler(node, *args, **kwargs)
+    
+    def get_node_handler(self, node_type):
+        match node_type:
+            case "Arimethic":
+                return self.handle_arimethic_node
+            case "Term":
+                return self.handle_term_node
+            case "Factor":
+                return self.handle_factor_node
+            
+    def handle_arimethic_node(self, arimethic_node ,level_print: str, spacing: int):
+        sub_node_level = 1
+        if arimethic_node.operator:
+            print (f"""{" | "*spacing}{level_print} {arimethic_node.__class__.__name__}opr. {arimethic_node.operator.value} """)
+        else:
+            print (f"""{" | "*spacing}{level_print} {arimethic_node.__class__.__name__}""")
+        spacing += 1
+        self.visit(arimethic_node.left, level_print = f"{level_print}.{sub_node_level}", spacing = spacing)
         if arimethic_node.right:
-            right_value = self.visit(arimethic_node.right)
-            if arimethic_node.operator.value == '+':
-                return left_value + right_value 
-            elif arimethic_node.operator.value == "-":
-                return left_value - right_value
-        return left_value
-        
-    def handle_term_node(self, term_node):
-        left_value = self.visit(term_node.left)
+            self.visit(arimethic_node.right, level_print = f"{level_print}.{sub_node_level + 1}", spacing = spacing)
+            return
+        return
+    
+    def handle_term_node(self, term_node, level_print: str, spacing: int):
+        sub_node_level = 1
+        if term_node.operator:
+            print (f"""{" | "*spacing}{level_print} {term_node.__class__.__name__}opr. {term_node.operator.value} """)
+        else:
+            print (f"""{" | "*spacing}{level_print} {term_node.__class__.__name__}""")
+        spacing += 1
+        self.visit(term_node.left, level_print = f"{level_print}.{sub_node_level}", spacing = spacing)
         if term_node.right:
-            right_value = self.visit(term_node.right)
-            if term_node.operator.value == "*":
-                return left_value * right_value
-            elif term_node.operator.value == "/":
-                return left_value / right_value
-        return left_value
+            self.visit(term_node.right, level_print = f"{level_print}.{sub_node_level + 1}", spacing = spacing)
+            return
+        return
     
-    def handle_factor_node(self, factor_node):
-        if not hasattr(factor_node.expr, "left"):
-            return factor_node.expr
-        return self.visit(factor_node.expr)
-    
-    def handle_ast_node(self, ast_node):
-        return self.visit(ast_node.expr)
-
-    
-    
+    def handle_factor_node(self, factor_node, level_print: str, spacing: int):
+        sub_node_level = 1
+        if hasattr(factor_node.expr, "left"):
+            print(f"""{" | "*spacing}{level_print} {factor_node.__class__.__name__}""")
+            spacing += 1
+            self.visit(factor_node.expr, level_print = f"{level_print}.{sub_node_level + 1}", spacing = spacing)
+            return
+        else:
+            print(f"""{" | "*spacing}{level_print} {factor_node.__class__.__name__}: {factor_node.expr}""")
+            return 

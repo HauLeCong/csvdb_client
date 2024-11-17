@@ -19,7 +19,16 @@ from .ast_node import (
     FactorNode,
     ExprNode, 
     WhereNode,
-    FromNode
+    FromNode,
+    ExprAddNode,
+    ExprMultiNode,
+    ExprValueNode,
+    PredicateNode,
+    PredicateOrNode,
+    PredicateAndNode,
+    PredicateNotNode,
+    PredicateCompareNode, 
+    ValueNode
 )
 
 class QueryParser:
@@ -173,6 +182,7 @@ class QueryParser:
         self.iter_token = iter(self.token)  
         self.advance_token()
         if self.match_token(ReservedWord.SELECT):
+            self.advance_token()
             ast = AST(self.parse_select_clause())
         elif self.match_token(ReservedWord.CREATE):
             self.advance_token()
@@ -203,6 +213,14 @@ class QueryParser:
                     where_clause=where_clause
                 )
         
+    def parse_from_clause(self) -> FromNode:
+        if self.match_token(Token.INDENTIFIER):
+            return FromNode(expr=self.current_token[1])
+        return None
+    
+    def parse_where_clause(self) -> WhereNode:
+        return WhereNode(expr=self.parse_predicate())
+        
     def parse_column_list(self) -> ColumnListNode:
         """
         Parse token to columnlist node
@@ -232,22 +250,90 @@ class QueryParser:
         else:
             column_node = ColumnNode(expr = self.parse_expr())
         return column_node
+    
+    def parse_predicate(self) -> PredicateNode:
+        return PredicateNode(expr=self.parse_predicate_or())
+    
+    def parse_predicate_or(self) -> PredicateOrNode:
+        current_left = PredicateOrNode(left=self.parse_predicate_and(), right = None, operator=None)
+        while self.match_token(ReservedWord.OR):
+            current_operator = self.current_token[0]
+            self.advance_token()
+            previous_left = current_left
+            current_left = PredicateOrNode(left=previous_left, right=self.parse_predicate_and(), operator=current_operator)
+        return current_left
+    
+    def parse_predicate_and(self) -> PredicateAndNode:
+        current_left = PredicateAndNode(left=self.parse_predicate_not(), right=None, operator=None)
+        while self.match_token(ReservedWord.AND):
+            current_operator = self.current_token
+            self.advance_token()
+            previous_left = current_left
+            current_left = PredicateAndNode(left=previous_left, right=self.parse_predicate_not(), operator=current_operator)
+            
+    def parse_predicate_not(self) -> PredicateNotNode:
+        return PredicateNotNode(expr=self.parse_predicate_compare(), operator=self.current_token if self.match_token(ReservedWord.NOT) else None)
 
+    def parse_predicate_compare(self) -> PredicateCompareNode:
+        if self.match_token(Token.LEFT_PAREN):
+            self.advance_token()
+            predicate_parent = PredicateCompareNode(left=self.parse_predicate_parent(), right=None, operator=None)
+            if not self.match_token(Token.RIGHT_PAREN):
+                raise ValueError(f"Expected close ) got {self.current_token}")
+            return predicate_parent
+        else:
+            current_left = PredicateCompareNode(left=self.parse_expr(), right= None, operator=None)
+            while self.match_token(Token.EQUAL) or self.match_token(Token.GREAT_THAN) or self.match_token(Token.LESS_THAN) or self.match_token(Token.GREATE_THAN_EQUAL) or self.match_token(Token.LESS_THAN_EQUAL):
+                current_operator = self.current_token
+                self.advance_token()
+                previous_left = current_left
+                current_left = PredicateCompareNode(left=previous_left, right=self.parse_expr(), operator=current_operator)
+            
     def parse_expr(self) -> ExprNode:
         """
             Parse expression from token list
-            This is LL(0) so we try to parse one by one until all fail or one success by order
-            arimethic -> logical -> comparision
         """
-        # Try arimethic first then logical then comparision 
-        for _parse in [self.parse_arimethic, self.parse_logical, self.parse_commparision]:
-            try:
-                result = _parse()
-                return ExprNode(expr=result)
-            except:
-                pass
-        # If all fail
-        raise RuntimeError(f"Unable to parse f{self.current_token}")
+        return ExprNode(expr=self.parse_expr_add())
+        
+    def parse_expr_add(self) -> ExprAddNode:
+        current_left = ExprAddNode(left = self.parse_expr_multi(), right = None, operator = None)
+        while self.match_token(Token.PLUS) or self.match_token(Token.MINUS):
+            current_operator = self.current_token[0]
+            self.advance_token()
+            previous_left = current_left
+            current_left = ExprAddNode(left=previous_left, right=self.parse_expr_multi(), operator = current_operator)
+        return current_left
+        
+    def parse_expr_multi(self) -> ExprMultiNode:
+        current_left = ExprMultiNode(left=self.parse_expr_value(), right = None, opearator=None)
+        while self.match_token(Token.ASTERISK) or self.match_token(Token.DIVIDE) or self.match_token(Token.PERCENT):
+            current_operator = self.current_token[0]
+            self.advance_token()
+            previous_left = current_left
+            current_left = ExprMultiNode(left=previous_left, right=self.parse_expr_value(), opearator=current_operator)
+        return current_left
+    
+    def parse_expr_value(self) -> ExprValueNode:
+        if self.match_token(Token.NUMBER_LITERAL) or self.match_token(Token.STRING_LITERAL):
+            return ExprValueNode(expr = self.current_token)
+        try:
+            expr_value = self.parse_value()
+        except:
+            raise
+        finally:
+            return ExprValueNode(expr=expr_value)
+            
+    def parse_value(self) -> ValueNode:
+        if self.match_token(Token.LEFT_PAREN):
+            self.advance_token()
+            value = ValueNode(expr=self.parse_expr())
+            if not self.match_token(Token.RIGHT_PAREN):
+                raise ValueError(f"Expected close ) got {self.current_token}")
+            return value
+        elif self.match_token(Token.INDENTIFIER):
+            return ValueNode(expr=self.current_token)
+        else:
+            raise ValueError(f"Expect identifier got {self.current_token}")  
     
     def parse_arimethic(self) -> ArimethicNode:
         current_left = ArimethicNode(left = self.parse_term(), right = None, operator= None)
@@ -298,13 +384,7 @@ class QueryParser:
         self.advance_token()
         return column_wild_card
         
-    def parse_from_clause(self) -> FromNode:
-        if self.match_token(Token.INDENTIFIER):
-            return FromNode(expr=self.current_token[1])
-        return None
     
-    def parse_where_clause(self) -> WhereNode:
-        pass
                
     def parse_create_clause(self) -> CreateTableNode:
         pass

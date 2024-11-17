@@ -110,3 +110,4 @@ def test_call_parse_create_table_on_valid_query(mock_parser):
     mock_parser.scan()
     print(mock_parser.token)
     assert mock_parser.parse()
+

@@ -7,12 +7,17 @@ class ReservedWord(Enum):
     TABLE = "TABLE"
     WHERE = "WHERE"
     AS = "AS"
+    NOT = "NOT"
+    NULL = "NULL"
+    OR = "OR"
+    AND = "AND"
 
 class Token(Enum):
     PLUS = "+"
     MINUS = "-"
     DIVIDE = "/"
     ASTERISK = "*"
+    PERCENT = "%"
     GREAT_THAN = ">"
     LESS_THAN = "<"
     GREATE_THAN_EQUAL = ">="

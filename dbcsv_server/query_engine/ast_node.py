@@ -2,9 +2,9 @@
 from typing import Union, Literal, Optional
 from dataclasses import dataclass
 
-from .visitor import ASTHandler
+from .planner import QueryPlanner
 
-ComparisionOperator = Literal[">", "<", "=", "<>"]
+ComparisionOperator = Literal[">", "<", "=", "<>", ">=", "<="]
 AddtionOperator = Literal["+", "-"]
 FactorOperator = Literal["*", "/"]
 
@@ -37,10 +37,10 @@ class CreateTableNode:
 @dataclass
 class WhereNode:
     """
-        `<where_clause>` ::= `<logical>` | `<where_clause>`
+        `<where_clause>` ::= `<predicate>`
     """
     type = "Where"
-    expr: Union["LogicalNode", "WhereNode"]
+    expr: Union["PredicateNode"]
     
 @dataclass
 class FromNode:
@@ -63,10 +63,14 @@ class ColumnListNode:
 @dataclass
 class ColumnNode:
     """
-        `<column>` :: = `<column_wild_card>` | `<column_name>` [AS `<alias>::= <str>`] | `<expr>`
+        `<column>` :: = `<column_wild_card>` | \n
+        `<expr>` AS `<alias>` | \n
+        `<expr>` `<alias>` | \n
+        `<alias>` = `<expr>` | \n
+        `<expr>`
     """
     type =  "Column"
-    expr: Union["ExprNode", "ColumnWildCardNode", "ColumnNameNode"]
+    expr: Union["ExprNode", "ColumnWildCardNode"]
     alias: Optional[str] = None
     
 @dataclass
@@ -102,12 +106,124 @@ class TableElementNode:
     expr: "IdentifierNode"
     
 @dataclass
+class PredicateNode:
+    """
+        `<predicate>` ::= `<predicate_or>`
+    """
+    type = "Predicate"
+    expr: "PredicateOrNode"
+    
+@dataclass
+class PredicateOrNode:
+    """
+        `<predicate_or>` ::= `<predicate_or>` OR `<predicate_and>` | `<predicate_or>`
+    """
+    type = "PredicateOr"
+    left: Union["PredicateOrNode", "PredicateAndNode"]
+    right: "PredicateAndNode"
+    operator: Optional[Literal["OR"]]
+    
+@dataclass
+class PredicateAndNode:
+    """
+        `<predicate_and>` ::= `<predicate_and>` AND `<predicate_not>` | `<predicate_not>`
+    """
+    type = "PredicateAnd"
+    left: Union["PredicateAndNode", "PredicateNotNode"]
+    right: "PredicateNotNode"
+    operator: Optional[Literal["AND"]]
+ 
+@dataclass
+class PredicateNotNode:
+    """
+        `<predicate_not>` ::= NOT `<predicate_compare>` | `<predicate_compare>`
+    """
+    type = "PredicateNot"
+    expr: "PredicateCompareNode"
+    operator: Optional[Literal["NOT"]]
+    
+@dataclass
+class PredicateCompareNode:
+    """
+        `<predicate_compare>` ::=
+            `<expression>` = `<expression>` |
+            `<expression>` >= `<expression>`|
+            `<expression>` <= `<expression>`|
+            `<expression>` > `<expression>` |
+            `<expression>` < `<expression>` |
+            `<expression>` <> `<expression>`|
+            `<predicate_parent>`
+    """
+    type = "PredicateCompare"
+    left: Union["ExprNode", "PredicateParentNode"]
+    right: "ExprNode"
+    operator: Optional[ComparisionOperator]
+    
+@dataclass
+class PredicateParentNode:
+    """
+        `<predicate_parent>` ::= `(<predicate>)`
+    """
+    type = "PredicateParent"
+    expr: "PredicateNode"
+
+@dataclass
 class ExprNode:
     """
-        `<expr>` :: =  `<arimethic_node>` | `<logical_node>` | `<comparison_node>`
+        `<expr>` ::=  `<expr_add>`
     """
     type = "Expr"
-    expr: Union["ArimethicNode", "LogicalNode", "ComparisionNode"]
+    expr: Union["ExprAddNode"]
+
+@dataclass
+class ExprAddNode:
+    """
+        `<expr_add>` ::= `<expr_add>` + `<expr_multi>` | \n
+        `<expr_add>` - `<expr_multi>` | \n
+        `<expr_multi>` 
+    """
+    type = "ExprAdd"
+    left: Union["ExprAddNode", "ExprMultiNode"]
+    right: "ExprMultiNode"
+    operator: Optional[AddtionOperator]
+
+@dataclass
+class ExprMultiNode:
+    """
+        `<expr_mulit>` ::= `<expr_multi>` * `<expr_value>` |
+        `<expr_multi>` / `<expr_value>` |
+        `<expr_multi>` % `<expr_value>` |
+        `<expr_value>`
+    """
+    type = "ExprMulti"
+    left: Union["ExprMultiNode", "ExprValueNode"]
+    right: "ExprValueNode"
+    opearator: Optional[FactorOperator]
+    
+@dataclass
+class ExprValueNode:
+    """
+        <expr_value> ::= `<value>` | `<literal>`
+    """
+    type = "ExprValue"
+    expr: Union["ValueNode", "LiteralNode"]
+    
+@dataclass
+class ValueNode:
+    """
+        `<value>` ::= `<Indentifier>` | (`<expr>`)
+    """
+    type = "ValueNode"
+    expr: Union["IdentifierNode", "ExprNode"]
+    
+@dataclass
+class LiteralNode:
+    """
+        `<literal>` ::= digit | string
+    """
+    type = "Literal"
+    expr: Union[str, float, int]
+    
 
 @dataclass
 class IdentifierNode:
@@ -115,34 +231,8 @@ class IdentifierNode:
         `<indentifier>` :: = `<str>`
     """
     type = "Indentifier"
-    value: str
-    
-@dataclass
-class LogicalNode:
-    """
-        `<logical>` ::= `<logical_term>` | `<logical_node>` 'OR' `<logical_term>`
-    """
-    left: Union["LogicalTermNode", "LogicalNode"]
-    right: "LogicalTermNode"
-    operator: Optional[Literal["OR"]]
-    
-@dataclass
-class LogicalTermNode:
-    """
-        `<logical_term>` ::= `<logical_factor>` | `<logical_term>` AND `<logical_factor>` 
-    """
-    left: Union["LogicalFactorNode", "LogicalTermNode"]
-    right: "LogicalFactorNode"
-    operator: Optional[Literal["AND"]]
-
-@dataclass
-class LogicalFactorNode:
-    """
-        `<logical_factor>` ::= ["NOT"] `<literal_boolean>` 
-    """
-    expr: "LiteralBoolean"
-    operator: Optional[Literal["NOT"]]
-
+    value: str 
+   
 @dataclass
 class ArimethicNode:
     """
@@ -155,7 +245,7 @@ class ArimethicNode:
     right: "TermNode"
     operator: Optional["AddtionOperator"]
     
-    def value(self, handler: ASTHandler):
+    def value(self, handler: QueryPlanner):
         return handler.visit(self)
     
 @dataclass
