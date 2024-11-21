@@ -2,7 +2,6 @@
 from typing import Union, Literal, Optional
 from dataclasses import dataclass
 
-from .planner import QueryPlanner
 
 ComparisionOperator = Literal[">", "<", "=", "<>", ">=", "<="]
 AddtionOperator = Literal["+", "-"]
@@ -18,7 +17,7 @@ class AST:
 @dataclass
 class SelectNode:
     """
-        `<select>` :: = 'SELECT' `<column_list>` 'FROM' `<from_clause>` 'WHERE' `<where_clause>`
+        `<select>` :: = 'SELECT' `<column_list>` `<from_clause>` `<where_clause>`
     """
     type = "Select"
     column_list: "ColumnListNode"
@@ -37,7 +36,7 @@ class CreateTableNode:
 @dataclass
 class WhereNode:
     """
-        `<where_clause>` ::= `<predicate>`
+        `<where_clause>` ::= WHERE `<predicate>`
     """
     type = "Where"
     expr: Union["PredicateNode"]
@@ -45,10 +44,36 @@ class WhereNode:
 @dataclass
 class FromNode:
     """
-        `<from_clause>` ::= `<identifier>`
+        `<from_clause>` ::= FROM `<source>`
     """
     type =  "From"
     expr: "IdentifierNode"
+    
+@dataclass
+class Source:
+    """
+        `<source>` ::= `<source_list>`
+    """
+    type = "Source"
+    expr: "SourceListNode"
+        
+@dataclass
+class SourceListNode:
+    """
+        `<source_list>` ::= `<source_list>`.`<source_name>` | `<source_name>`
+    """
+    type = "SourceList"
+    left: Union["SourceListNode", "SourceNameNode"]
+    right: "SourceNameNode"
+    
+@dataclass
+class SourceNameNode:
+    """
+        `<schema_name>` ::= `<identifier>`
+    """
+    type = "SourceName"
+    expr: "IdentifierNode"
+ 
     
 @dataclass
 class ColumnListNode:
@@ -58,7 +83,7 @@ class ColumnListNode:
     type = "ColumnList"
     left: Union["ColumnNode","ColumnListNode"]
     right: "ColumnNode"
-    operator: Literal[","] = None
+    operator: Optional[Literal[","]]
 
 @dataclass
 class ColumnNode:
@@ -146,12 +171,12 @@ class PredicateNotNode:
 class PredicateCompareNode:
     """
         `<predicate_compare>` ::=
-            `<expression>` = `<expression>` |
-            `<expression>` >= `<expression>`|
-            `<expression>` <= `<expression>`|
-            `<expression>` > `<expression>` |
-            `<expression>` < `<expression>` |
-            `<expression>` <> `<expression>`|
+            `<expression>` =  `<expression>` | \n
+            `<expression>` >= `<expression>` | \n
+            `<expression>` <= `<expression>` | \n
+            `<expression>` >  `<expression>` | \n
+            `<expression>` <  `<expression>` | \n
+            `<expression>` <> `<expression>` | \n
             `<predicate_parent>`
     """
     type = "PredicateCompare"
@@ -198,7 +223,7 @@ class ExprMultiNode:
     type = "ExprMulti"
     left: Union["ExprMultiNode", "ExprValueNode"]
     right: "ExprValueNode"
-    opearator: Optional[FactorOperator]
+    operator: Optional[FactorOperator]
     
 @dataclass
 class ExprValueNode:
@@ -211,15 +236,15 @@ class ExprValueNode:
 @dataclass
 class ValueNode:
     """
-        `<value>` ::= `<Indentifier>` | (`<expr>`)
+        `<value>` ::= `<identifier>` | (`<expr>`)
     """
-    type = "ValueNode"
+    type = "Value"
     expr: Union["IdentifierNode", "ExprNode"]
     
 @dataclass
 class LiteralNode:
     """
-        `<literal>` ::= digit | string
+        `<literal>` ::= <digit> | <string>
     """
     type = "Literal"
     expr: Union[str, float, int]
@@ -244,9 +269,6 @@ class ArimethicNode:
     left: Union["TermNode", "ArimethicNode"]
     right: "TermNode"
     operator: Optional["AddtionOperator"]
-    
-    def value(self, handler: QueryPlanner):
-        return handler.visit(self)
     
 @dataclass
 class TermNode:

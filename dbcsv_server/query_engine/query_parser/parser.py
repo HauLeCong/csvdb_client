@@ -3,8 +3,8 @@ from typing import List
 from enum import Enum
 import re
 
-from .token import ReservedWord, Token
-from .ast_node import (
+from ..token import ReservedWord, Token
+from ..ast_node import (
     AST, 
     SelectNode, 
     CreateTableNode,
@@ -13,8 +13,6 @@ from .ast_node import (
     ColumnNameNode,
     ColumnWildCardNode,
     ArimethicNode,
-    ComparisionNode,
-    LogicalNode,
     TermNode,
     FactorNode,
     ExprNode, 
@@ -31,7 +29,7 @@ from .ast_node import (
     ValueNode
 )
 
-class QueryParser:
+class Parser:
     """
         This class convert a sql string to an AST tree
     """
@@ -47,8 +45,16 @@ class QueryParser:
         self.current_token = None
         self.iter_token = None
         self.current_character = next(self.iter_query_string)
+        self.last_character = None
         self.character_count = 1
     
+    def next_character(self):
+        try:
+            self.last_character = self.current_character
+            self.current_character = next(self.iter_query_string)
+        except StopIteration:
+            raise
+            
     def peek_next(self, whole_literal: str , regex_end_character) -> str:
         try:
             self.current_character = next(self.iter_query_string)
@@ -59,18 +65,25 @@ class QueryParser:
         except StopIteration as e:
             raise ValueError("Literal not closed")
     
-    def scan_number(self, whole_number) -> str:
+    def scan_number(self) -> str:
         """
             Scan number until meet end regex
         """
-        try:
-            self.current_character = next(self.iter_query_string) 
-            # Match space | tab | endline then end scan
-            if re.search(r"[^0-9.]", self.current_character):
-                return whole_number
-            return self.scan_number(whole_number+self.current_character)
-        except:
-            raise 
+        def scan_util(s, end_reg):
+            try:
+                self.next_character()
+                if end_reg.search(self.current_character):
+                    return s
+                return scan_util(s + self.current_character, end_reg) 
+            except:
+                return s
+        scan_number = scan_util(self.current_character, re.compile(r"[ \t\r\n\,\*\/\+\-\.\<\>\=\(\)]"))
+        if self.current_character == ".":
+            # meet dot then scan again
+            scan_number = scan_util(scan_number + self.current_character, re.compile(r"[ \t\r\n\,\*\/\+\-\.\<\>\=\(\)]"))
+            return scan_number
+        return scan_number
+        
         
     def scan_string(self) -> None:
         """
@@ -80,24 +93,24 @@ class QueryParser:
             "abc" is valid
         """
         def scan_until(s, end_reg):
-            self.current_character = next(self.iter_query_string)
+            self.next_character()
             if end_reg.search(self.current_character):
                 return s
             return scan_until(s + self.current_character, end_reg)
         
-        _whole_string = ""
         if self.current_character == "\"":
-            self.current_character = next(self.iter_query_string)
+            self.next_character()
             # The first character is the " then we only care about the endclose "
             # Keep scan until meet "
             try:  
                 _whole_string = scan_until(self.current_character, re.compile(r"\""))
                 # Consume " so that we can continue to next character
-                self.current_character = next(self.iter_query_string)
+                self.next_character()
                 return _whole_string
             except StopIteration:
                 raise ValueError(f"Invalid token string was not closed")
-        return scan_until(_whole_string + self.current_character, re.compile(r"[ \t\r\n\,]"))
+            
+        return scan_until(self.current_character, re.compile(r"[ \t\r\n\,\*\/\+\-\.\<\>\=\(\)]"))
          
     def scan(self):
         """
@@ -119,27 +132,62 @@ class QueryParser:
                         self.token.append((Token.MINUS, ))
                     case "/":
                         self.token.append((Token.DIVIDE, ))
+                    case ">":
+                        self.next_character()
+                        if self.current_character == "=":
+                            self.token.append((Token.GREATER_THAN_EQUAL, ))
+                        else:
+                            self.token.append((Token.GREATER_THAN, ))
+                            continue
+                    case "<":
+                        self.next_character()
+                        if self.current_character == "=":
+                            self.token.append((Token.LESS_THAN_EQUAL, ))
+                        elif self.current_character == ">":
+                            self.token.append((Token.DIFFERENT, ))
+                        else:
+                            self.token.append((Token.LESS_THAN, ))
+                            continue
                     case "=":
                         self.token.append((Token.EQUAL, ))
                     case "*":
                         self.token.append((Token.ASTERISK, ))
-                    case "==":
-                        self.token.append((Token.DOUBLE_EQUAL, ))
                     case "'": # String literal
                         self.token.append((Token.STRING_LITERAL, self.peek_next("", re.compile(r"'"))))
                     case _: # Reversed word | Column name | Table name | Not support
                         # Number literal
-                        if re.search(r"[0-9.]", self.current_character):
-                            whole_number = self.scan_number(self.current_character)
+                        if re.search(r"[0-9]", self.current_character):
+                            whole_number = self.scan_number()
                             if not re.search(r"([0-9]+(\.[0-9]+)?|\.[0-9]+)$", whole_number):
                                 raise ValueError(f"Invalid token [{whole_number}]")
-                            self.token.append((Token.NUMBER_LITERAL, float(whole_number)))
+                            try:
+                                self.token.append((Token.NUMBER_LITERAL, float(whole_number)))
+                            except Exception:
+                                raise ValueError(f"Invalid token f{whole_number}")
                             continue
+                        # Dot
+                        elif self.current_character == ".":
+                            # Check float number without digit exp: .123
+                            if re.search(r"[ \,\+\-\*\/\=\<\>]", self.last_character):
+                                whole_number = self.scan_number()
+                                if not re.search(r"([0-9]+(\.[0-9]+)?|\.[0-9]+)$", whole_number):
+                                    raise ValueError(f"Invalid token [{whole_number}]")
+                                try:
+                                    self.token.append((Token.NUMBER_LITERAL, float(whole_number)))
+                                except Exception:
+                                    raise ValueError(f"Invalid token [{whole_number}]")
+                                continue
+                            # Then this is an identifier
+                            else:
+                                self.token.append((Token.DOT, ))
+                                pass
+                                                            
                         # Identifier
                         elif re.search(r"[\w\"_]", self.current_character):
                             whole_word = self.scan_string()
                             if whole_word in [w.value for w in ReservedWord]:
                                 self.token.append((ReservedWord[whole_word], ))
+                                continue
                             else:
                                 # Check again if they are valid regex for identifier 
                                 if not re.search("^[^\d\W]\w*\Z", whole_word):
@@ -154,7 +202,7 @@ class QueryParser:
                             pass                            
                         else:
                             raise ValueError(f"Not support character {self.current_character} at line {self.current_line} position {self.current_position}")
-                self.current_character = next(self.iter_query_string)
+                self.next_character()
             except StopIteration as e:
                 keep_scan = False
     
@@ -165,6 +213,7 @@ class QueryParser:
         try:
             self.current_token = next(self.iter_token)
         except StopIteration:
+            self.current_token = None
             pass
     
     def match_token(self, token) -> bool:
@@ -241,54 +290,29 @@ class QueryParser:
         """
         if self.match_token(Token.ASTERISK):
             column_node = ColumnNode(expr=self.parse_column_wild_card())
-        elif self.match_token(Token.INDENTIFIER):
-            column_node = ColumnNode(expr=self.parse_column_name())
-            if self.match_token(ReservedWord.AS):
-                self.advance_token()
-                column_node.alias = self.current_token[1]
-                self.advance_token()
+            return column_node
         else:
             column_node = ColumnNode(expr = self.parse_expr())
-        return column_node
+            if self.current_token and not self.match_token(ReservedWord.FROM):
+                if self.match_token(Token.COMMA):
+                    return column_node
+                elif self.match_token(ReservedWord.AS) or self.match_token(Token.INDENTIFIER):
+                    print(f"match AS {self.current_token}" )
+                    self.advance_token()
+                    column_node.alias = self.current_token
+                    self.advance_token()
+                    return column_node
+                else:
+                    raise ValueError(f"Unexpected token {self.current_token}")
+            else:
+                return column_node
     
     def parse_predicate(self) -> PredicateNode:
-        return PredicateNode(expr=self.parse_predicate_or())
+        from .predicate_parser import PredicateParser
+        predicate_parser = PredicateParser(self)
+        return predicate_parser.parse()
     
-    def parse_predicate_or(self) -> PredicateOrNode:
-        current_left = PredicateOrNode(left=self.parse_predicate_and(), right = None, operator=None)
-        while self.match_token(ReservedWord.OR):
-            current_operator = self.current_token[0]
-            self.advance_token()
-            previous_left = current_left
-            current_left = PredicateOrNode(left=previous_left, right=self.parse_predicate_and(), operator=current_operator)
-        return current_left
-    
-    def parse_predicate_and(self) -> PredicateAndNode:
-        current_left = PredicateAndNode(left=self.parse_predicate_not(), right=None, operator=None)
-        while self.match_token(ReservedWord.AND):
-            current_operator = self.current_token
-            self.advance_token()
-            previous_left = current_left
-            current_left = PredicateAndNode(left=previous_left, right=self.parse_predicate_not(), operator=current_operator)
-            
-    def parse_predicate_not(self) -> PredicateNotNode:
-        return PredicateNotNode(expr=self.parse_predicate_compare(), operator=self.current_token if self.match_token(ReservedWord.NOT) else None)
-
-    def parse_predicate_compare(self) -> PredicateCompareNode:
-        if self.match_token(Token.LEFT_PAREN):
-            self.advance_token()
-            predicate_parent = PredicateCompareNode(left=self.parse_predicate_parent(), right=None, operator=None)
-            if not self.match_token(Token.RIGHT_PAREN):
-                raise ValueError(f"Expected close ) got {self.current_token}")
-            return predicate_parent
-        else:
-            current_left = PredicateCompareNode(left=self.parse_expr(), right= None, operator=None)
-            while self.match_token(Token.EQUAL) or self.match_token(Token.GREAT_THAN) or self.match_token(Token.LESS_THAN) or self.match_token(Token.GREATE_THAN_EQUAL) or self.match_token(Token.LESS_THAN_EQUAL):
-                current_operator = self.current_token
-                self.advance_token()
-                previous_left = current_left
-                current_left = PredicateCompareNode(left=previous_left, right=self.parse_expr(), operator=current_operator)
-            
+        
     def parse_expr(self) -> ExprNode:
         """
             Parse expression from token list
@@ -297,7 +321,7 @@ class QueryParser:
         
     def parse_expr_add(self) -> ExprAddNode:
         current_left = ExprAddNode(left = self.parse_expr_multi(), right = None, operator = None)
-        while self.match_token(Token.PLUS) or self.match_token(Token.MINUS):
+        while self.current_token and (self.match_token(Token.PLUS) or self.match_token(Token.MINUS)):
             current_operator = self.current_token[0]
             self.advance_token()
             previous_left = current_left
@@ -305,22 +329,25 @@ class QueryParser:
         return current_left
         
     def parse_expr_multi(self) -> ExprMultiNode:
-        current_left = ExprMultiNode(left=self.parse_expr_value(), right = None, opearator=None)
-        while self.match_token(Token.ASTERISK) or self.match_token(Token.DIVIDE) or self.match_token(Token.PERCENT):
+        current_left = ExprMultiNode(left=self.parse_expr_value(), right = None, operator=None)
+        while self.current_token and (self.match_token(Token.ASTERISK) or self.match_token(Token.DIVIDE) or self.match_token(Token.PERCENT)):
             current_operator = self.current_token[0]
             self.advance_token()
             previous_left = current_left
-            current_left = ExprMultiNode(left=previous_left, right=self.parse_expr_value(), opearator=current_operator)
+            current_left = ExprMultiNode(left=previous_left, right=self.parse_expr_value(), operator=current_operator)
         return current_left
     
     def parse_expr_value(self) -> ExprValueNode:
         if self.match_token(Token.NUMBER_LITERAL) or self.match_token(Token.STRING_LITERAL):
-            return ExprValueNode(expr = self.current_token)
+            expr_value = ExprValueNode(expr = self.current_token)
+            self.advance_token()
+            return expr_value
         try:
             expr_value = self.parse_value()
         except:
             raise
         finally:
+            self.advance_token()
             return ExprValueNode(expr=expr_value)
             
     def parse_value(self) -> ValueNode:
@@ -337,23 +364,17 @@ class QueryParser:
     
     def parse_arimethic(self) -> ArimethicNode:
         current_left = ArimethicNode(left = self.parse_term(), right = None, operator= None)
-        while self.match_token(Token.PLUS) or self.match_token(Token.MINUS):
+        while self.current_token and (self.match_token(Token.PLUS) or self.match_token(Token.MINUS)):
             operator = self.current_token[0]
             self.advance_token()
             previous_left = current_left
             current_left = ArimethicNode(left = previous_left, right=self.parse_term(), operator=operator)
         return current_left
     
-    def parse_logical(self) -> LogicalNode:
-        pass
-    
-    def parse_commparision(self) -> ComparisionNode:
-        pass
-    
     def parse_term(self) -> TermNode:
         # Initial
         current_left = TermNode(left=self.parse_factor(), right= None, operator=None)
-        while self.match_token(Token.ASTERISK) or self.match_token(Token.DIVIDE):
+        while self.current_token and (self.match_token(Token.ASTERISK) or self.match_token(Token.DIVIDE)):
             operator = self.current_token[0]
             self.advance_token()
             previous_left = current_left
@@ -383,9 +404,7 @@ class QueryParser:
         column_wild_card =  ColumnWildCardNode()
         self.advance_token()
         return column_wild_card
-        
-    
-               
+                   
     def parse_create_clause(self) -> CreateTableNode:
         pass
     
