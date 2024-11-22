@@ -308,93 +308,13 @@ class Parser:
         predicate_parser = PredicateParser(self)
         return predicate_parser.parse()
     
-        
     def parse_expr(self) -> ExprNode:
         """
             Parse expression from token list
         """
-        return ExprNode(expr=self.parse_expr_add())
-        
-    def parse_expr_add(self) -> ExprAddNode:
-        current_left = ExprAddNode(left = self.parse_expr_multi(), right = None, operator = None)
-        while self.current_token and (self.match_token(Token.PLUS) or self.match_token(Token.MINUS)):
-            current_operator = self.current_token[0]
-            self.advance_token()
-            previous_left = current_left
-            current_left = ExprAddNode(left=previous_left, right=self.parse_expr_multi(), operator = current_operator)
-        return current_left
-        
-    def parse_expr_multi(self) -> ExprMultiNode:
-        current_left = ExprMultiNode(left=self.parse_expr_value(), right = None, operator=None)
-        while self.current_token and (self.match_token(Token.ASTERISK) or self.match_token(Token.DIVIDE) or self.match_token(Token.PERCENT)):
-            current_operator = self.current_token[0]
-            self.advance_token()
-            previous_left = current_left
-            current_left = ExprMultiNode(left=previous_left, right=self.parse_expr_value(), operator=current_operator)
-        return current_left
-    
-    def parse_expr_value(self) -> ExprValueNode:
-        if self.match_token(Token.NUMBER_LITERAL) or self.match_token(Token.STRING_LITERAL):
-            expr_value = ExprValueNode(expr = self.current_token)
-            self.advance_token()
-            return expr_value
-        try:
-            expr_value = self.parse_value()
-        except:
-            raise
-        finally:
-            self.advance_token()
-            return ExprValueNode(expr=expr_value)
-            
-    def parse_value(self) -> ValueNode:
-        if self.match_token(Token.LEFT_PAREN):
-            self.advance_token()
-            value = ValueNode(expr=self.parse_expr())
-            if not self.match_token(Token.RIGHT_PAREN):
-                raise ValueError(f"Expected close ) got {self.current_token}")
-            return value
-        elif self.match_token(Token.INDENTIFIER):
-            return ValueNode(expr=self.current_token)
-        else:
-            raise ValueError(f"Expect identifier got {self.current_token}")  
-    
-    def parse_arimethic(self) -> ArimethicNode:
-        current_left = ArimethicNode(left = self.parse_term(), right = None, operator= None)
-        while self.current_token and (self.match_token(Token.PLUS) or self.match_token(Token.MINUS)):
-            operator = self.current_token[0]
-            self.advance_token()
-            previous_left = current_left
-            current_left = ArimethicNode(left = previous_left, right=self.parse_term(), operator=operator)
-        return current_left
-    
-    def parse_term(self) -> TermNode:
-        # Initial
-        current_left = TermNode(left=self.parse_factor(), right= None, operator=None)
-        while self.current_token and (self.match_token(Token.ASTERISK) or self.match_token(Token.DIVIDE)):
-            operator = self.current_token[0]
-            self.advance_token()
-            previous_left = current_left
-            current_left = TermNode(left=previous_left, right=self.parse_factor(), operator=operator)
-        return current_left 
-    
-    def parse_factor(self) -> FactorNode:
-        # Initial 
-        if self.match_token(Token.LEFT_PAREN):
-            self.advance_token()  # Move to the next token
-            factor = FactorNode(self.parse_arimethic())
-            if not self.match_token(Token.RIGHT_PAREN):
-                raise ValueError(f"Expected token )")
-        else:
-            if not isinstance(self.current_token[1], (int, float, bool)):
-                raise ValueError(f"Expect (expr) or int|float|bool value got {self.current_token}")
-            factor = FactorNode(expr = self.current_token[1])
-            self.advance_token()
-        return factor
-    
-    def parse_column_name(self) -> ColumnNameNode:
-        column_name = ColumnNameNode(expr=self.current_token[1])
-        self.advance_token()
-        return column_name
+        from .expression_parser import ExpressionParser
+        expression_parser = ExpressionParser(self)
+        return expression_parser.parse()
     
     def parse_column_wild_card(self) -> ColumnWildCardNode:
         column_wild_card =  ColumnWildCardNode()

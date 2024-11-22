@@ -225,21 +225,30 @@ class ExprMultiNode:
     right: "ExprValueNode"
     operator: Optional[FactorOperator]
     
+    
 @dataclass
 class ExprValueNode:
     """
-        <expr_value> ::= `<value>` | `<literal>`
+        <expr_value> ::= `<literal>` | `<value>`
     """
     type = "ExprValue"
-    expr: Union["ValueNode", "LiteralNode"]
+    expr: Union["ValueNode", "LiteralNode", ]
     
 @dataclass
 class ValueNode:
     """
-        `<value>` ::= `<identifier>` | (`<expr>`)
+        `<value>` ::=  `<identifier>` | `<expr_parent>`
     """
     type = "Value"
-    expr: Union["IdentifierNode", "ExprNode"]
+    expr: Union["IdentifierNode", "ExprParentNode"]
+    
+@dataclass
+class ExprParentNode:
+    """
+        `<expr_parent>` ::= (`<expr>`)
+    """
+    type = "ExprParent"
+    expr: "ExprNode"
     
 @dataclass
 class LiteralNode:

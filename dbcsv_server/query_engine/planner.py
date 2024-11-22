@@ -1,8 +1,19 @@
 
-from .ast_node import SelectNode, FromNode, WhereNode, PredicateNode, PredicateOrNode, ColumnListNode
 from functools import partial
 from typing import Any, Iterator
-from functools import partial
+
+from .ast_node import (
+        SelectNode, 
+        FromNode, 
+        WhereNode, 
+        PredicateNode, 
+        PredicateCompareNode,
+        ColumnListNode,
+        ExprNode,
+        ExprMultiNode,
+        ExprValueNode
+    )
+
 
 class QueryPlanner:
     """
@@ -39,7 +50,24 @@ class QueryPlanner:
     def handle_column_list_node(self, node: ColumnListNode, row: dict):
         result = {}
         
+    
+    def handle_predicate_compare_node(self, node: PredicateCompareNode):
+        pass
+    
+    
+    def handle_expr_multi_node(self, node: ExprMultiNode):
+        left = self.visit(node.left)
+        if node.right:
+            right = self.visit(node.right)
         
+    
+    def handle_expr_value_node(self, node: ExprValueNode, data):
+        if node.expr.name and node.expr.name == "IDENTIFIER":
+            return data[node.expr[1]]
+        return node.expr
+    
+    
+            
         #and or
         
         # function input function and return function
@@ -50,5 +78,5 @@ class QueryPlanner:
         # SELECT -> iterator
         # Append with executor 
         
-        SELECT(WHERE(FROM()))
+        # SELECT(WHERE(FROM()))
     
