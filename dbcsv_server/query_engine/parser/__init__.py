@@ -22,10 +22,6 @@ from ..ast_node import (
     ExprMultiNode,
     ExprValueNode,
     PredicateNode,
-    PredicateOrNode,
-    PredicateAndNode,
-    PredicateNotNode,
-    PredicateCompareNode, 
     ValueNode
 )
 

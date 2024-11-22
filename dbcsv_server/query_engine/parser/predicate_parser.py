@@ -1,6 +1,6 @@
 
 from ..ast_node import PredicateNode, PredicateOrNode, PredicateAndNode, PredicateNotNode, PredicateCompareNode, PredicateParentNode
-from .parser import QueryParser
+from . import Parser
 from ..token import Token, ReservedWord
 
 class PredicateParser:
@@ -10,13 +10,18 @@ class PredicateParser:
         This class will visit Query Parser class to get require information
     """
     
-    def __init__(self, caller: QueryParser):
+    def __init__(self, caller: Parser):
         self._caller = caller
     
     def parse(self, *args, **kwargs) -> PredicateNode:
         return PredicateNode(expr=self._parse_predicate_or_node())
     
     def _parse_predicate_or_node(self) -> PredicateOrNode:
+        """
+        Parse PredicateOrNode (left recursive)
+        Returns:
+            PredicateOrNode
+        """
         current_left = PredicateOrNode(left=self._parse_predicate_and_node(), right = None, operator=None)
         while self._caller.current_token and self._caller.match_token(ReservedWord.OR):
             previous_left = current_left
@@ -26,6 +31,11 @@ class PredicateParser:
         return current_left
     
     def _parse_predicate_and_node(self) -> PredicateAndNode:
+        """
+        Parse PredicateAndNode (left recursive)
+        Returns:
+            PredicateAndNode
+        """
         current_left = PredicateAndNode(left=self._parse_predicate_not_node(), right=None, operator=None)
         while self._caller.current_token and self._caller.match_token(ReservedWord.AND):
             previous_left = current_left

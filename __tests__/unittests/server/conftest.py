@@ -1,6 +1,6 @@
 import pytest
 
-from dbcsv_server.query_engine.parser import QueryParser
+from dbcsv_server.query_engine.parser import Parser
 from dbcsv_server.query_engine.visitor import ASTPrinter
 
 class MocKQueryParser:
@@ -13,7 +13,7 @@ class MocKQueryParser:
 
 @pytest.fixture
 def mock_parser(request):
-    _parser = QueryParser(request.param)
+    _parser = Parser(request.param)
     MocKQueryParser.parse(_parser)
     return _parser
 

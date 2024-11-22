@@ -215,9 +215,9 @@ class ExprAddNode:
 @dataclass
 class ExprMultiNode:
     """
-        `<expr_mulit>` ::= `<expr_multi>` * `<expr_value>` |
-        `<expr_multi>` / `<expr_value>` |
-        `<expr_multi>` % `<expr_value>` |
+        `<expr_mulit>` ::= `<expr_multi>` * `<expr_value>` |\n
+        `<expr_multi>` / `<expr_value>` |\n
+        `<expr_multi>` % `<expr_value>` |\n
         `<expr_value>`
     """
     type = "ExprMulti"

@@ -3,8 +3,8 @@ import pytest
 from collections.abc import Iterator
 from typing import Tuple, List
 
-from dbcsv_server.query_engine.parser import QueryParser
-from dbcsv_server.query_engine.sub_parser.predicate_parser import PredicateParser
+from dbcsv_server.query_engine.parser import Parser
+from dbcsv_server.query_engine.parser.predicate_parser import PredicateParser
 from dbcsv_server.query_engine.ast_node import (
     FactorNode, 
     TermNode, 
@@ -61,7 +61,7 @@ def test_scan_number_return_valid_number(valid_number):
     """
         Test parser.sacn_number return valide number
     """
-    parser = QueryParser(valid_number)
+    parser = Parser(valid_number)
     assert parser.scan_number() == valid_number
     
 @pytest.mark.parametrize("invalid_number", ["1.234a", " .j123", "123.a"])
@@ -69,7 +69,7 @@ def test_scan_number_return_invalid_number(invalid_number):
     """
         Test parser scan number return invalid error
     """
-    parser = QueryParser(invalid_number)
+    parser = Parser(invalid_number)
     with pytest.raises(ValueError) as e:
        assert parser.scan()
    
@@ -78,7 +78,7 @@ def test_valid_string(valid_string, expected):
     """
     Test parser return valid string on scan
     """
-    parser = QueryParser(valid_string)
+    parser = Parser(valid_string)
     assert parser.scan_string() == expected.upper()
 
 @pytest.mark.parametrize("invalid_string", ["\"abc"])
@@ -86,21 +86,21 @@ def test_not_closed_string(invalid_string):
     """
     Test return error when string not closed
     """
-    parser = QueryParser(invalid_string)
+    parser = Parser(invalid_string)
     with pytest.raises(ValueError) as e:
         assert parser.scan_string()
     
     assert e.value.args[0] == f"Invalid token string was not closed"
     
 def test_parse_func_iter_token():
-    parser = QueryParser("select * from test")
+    parser = Parser("select * from test")
     parser.scan()
     parser.parse()
     assert isinstance(parser.iter_token, Iterator)
     
 @pytest.mark.parametrize("invalid_token", ["select a \r\n"])
 def test_parse_factor_invalid_character(invalid_token):
-    query_parser = QueryParser(invalid_token)
+    query_parser = Parser(invalid_token)
     query_parser.scan()
     query_parser.iter_token = iter(query_parser.token)
     query_parser.advance_token()
@@ -110,7 +110,7 @@ def test_parse_factor_invalid_character(invalid_token):
 
 @pytest.mark.parametrize("numeric, expected", [("1+ \r\n", 1.0), ("10+ \r\n", 10.0), ("1.234+ \r\n", 1.234), (" .123 \r\n", 0.123)]) 
 def test_parse_factor_single_digit(numeric, expected):
-    parser = QueryParser(numeric)
+    parser = Parser(numeric)
     parser.scan()
     parser.iter_token = iter(parser.token)
     parser.advance_token()
@@ -121,7 +121,7 @@ def test_parse_factor_single_digit(numeric, expected):
     
 @pytest.mark.parametrize("numeric, expected", [("1+2*3 \r\n", 1.0)])
 def test_parse_term_single_digit(numeric, expected):
-    parser = QueryParser(numeric)
+    parser = Parser(numeric)
     parser.scan()
     parser.iter_token = iter(parser.token)
     parser.advance_token()
@@ -132,7 +132,7 @@ def test_parse_term_single_digit(numeric, expected):
    
 @pytest.mark.parametrize("numeric, expected", [("1 ,\r\n", 1.0)]) 
 def test_parse_aritmethic_single_digits(numeric, expected):
-    parser = QueryParser(numeric)
+    parser = Parser(numeric)
     parser.scan()
     parser.iter_token = iter(parser.token)
     parser.advance_token()
@@ -144,7 +144,7 @@ def test_parse_aritmethic_single_digits(numeric, expected):
 
 @pytest.mark.parametrize("valid_query", ["select 1+2*4 \r\n", "select 1*4+(7-8)"])
 def test_parse_arimethic_full_flow(valid_query):
-    parser = QueryParser(valid_query)
+    parser = Parser(valid_query)
     parser.scan()
     parser.iter_token = iter(parser.token)
     parser.advance_token()
@@ -161,7 +161,7 @@ def test_parse_arimethic_full_flow(valid_query):
     ]
 )
 def test_parse_column(valid_query):
-    parser = QueryParser(valid_query)
+    parser = Parser(valid_query)
     parser.scan()
     parser.iter_token = iter(parser.token)
     parser.advance_token()
@@ -175,7 +175,7 @@ def test_parse_column(valid_query):
 #     ]
 # )
 # def test_parse_column_list(valid_query):
-#     parser = QueryParser(valid_query)
+#     parser = Parser(valid_query)
 #     parser.scan()
 #     parser.iter_token = iter(parser.token)
 #     parser.advance_token()
@@ -189,7 +189,7 @@ def test_parse_column(valid_query):
     
 @pytest.mark.parametrize("from_clause", ["from abc", """from "xyz" """])
 def test_parse_from_clause(from_clause):
-    parser = QueryParser(from_clause)
+    parser = Parser(from_clause)
     parser.scan()
     parser.iter_token = iter(parser.token)
     parser.advance_token()
@@ -202,7 +202,7 @@ def test_parse_from_clause(from_clause):
     "select a, b, c, 1+2+3 from xyz"
 ])
 def test_parse_select(select_query):
-    parser = QueryParser(select_query)
+    parser = Parser(select_query)
     parser.scan()
     parser.iter_token = iter(parser.token)
     parser.advance_token()
@@ -246,7 +246,7 @@ def test_return_value_column_node():
     
 # @pytest.mark.parametrize("valid_query", ["select a, b, 1+2+3 from xyz"])
 # def test_return_select_node_value(valid_query):
-#     parser = QueryParser(valid_query)
+#     parser = Parser(valid_query)
 #     parser.scan()
 #     parser.iter_token = iter(parser.token)
 #     parser.advance_token()
@@ -261,7 +261,7 @@ def test_return_value_column_node():
     
 @pytest.mark.parametrize("valid_query", ["select a from xyz", "select 1+2*3 from xyz", "select a*2+10 from xyz"])
 def test_parse_expr(valid_query):
-    parser = QueryParser(valid_query)
+    parser = Parser(valid_query)
     parser.scan()
     parser.iter_token = iter(parser.token)
     parser.advance_token()
@@ -271,7 +271,7 @@ def test_parse_expr(valid_query):
     
 @pytest.mark.parametrize("valid_query", ["select a from xyz", "select 1+2*3 from xyz", "select a*2+10 from xyz"])
 def test_print_expr_node(valid_query):
-    parser = QueryParser(valid_query)
+    parser = Parser(valid_query)
     parser.scan()
     parser.iter_token = iter(parser.token)
     parser.advance_token()
@@ -283,7 +283,7 @@ def test_print_expr_node(valid_query):
     
 @pytest.mark.parametrize("valid_query", ["select a from xyz", "select a+1+2*4", """select a as "A" """])
 def test_print_column_node(valid_query):
-    parser = QueryParser(valid_query)
+    parser = Parser(valid_query)
     parser.scan()
     parser.iter_token = iter(parser.token)
     parser.advance_token()
@@ -296,7 +296,7 @@ def test_print_column_node(valid_query):
     
 @pytest.mark.parametrize("valid_query", ["select a, b, c from xyz", "select 1 as a from abc", "select a, 1*4+5, c from xyz"])
 def test_print_column_list_node(valid_query):
-    parser = QueryParser(valid_query)
+    parser = Parser(valid_query)
     parser.scan()
     parser.iter_token = iter(parser.token)
     parser.advance_token()
@@ -310,7 +310,7 @@ def test_print_column_list_node(valid_query):
     
 @pytest.mark.parametrize("valid_query", ["1 > a", "a = b", "c >= d", "d <= e", "1 > 2", "3<>4"])
 def test_parse_predicate_compare(valid_query):
-    parser = QueryParser(valid_query)
+    parser = Parser(valid_query)
     parser.scan()
     parser.iter_token = iter(parser.token)
     parser.advance_token()
@@ -322,7 +322,7 @@ def test_parse_predicate_compare(valid_query):
     
 @pytest.mark.parametrize("valid_query", ["NOT A = B", "NOT 1 = 2", "NOT 1 <> 3", "NOT (1>2)"])
 def test_parse_predicate_not(valid_query, ast_printer):
-    parser = QueryParser(valid_query)
+    parser = Parser(valid_query)
     parser.scan()
     parser.iter_token = iter(parser.token)
     parser.advance_token()
@@ -335,7 +335,7 @@ def test_parse_predicate_not(valid_query, ast_printer):
 
 @pytest.mark.parametrize("valid_query", ["A=b AND D=e", "1*3+2 AND NOT(4>5 AND 1)"])
 def test_parse_predicate_and(valid_query):
-    parser = QueryParser(valid_query)
+    parser = Parser(valid_query)
     parser.scan()
     parser.iter_token = iter(parser.token)
     print(parser.token)
@@ -349,7 +349,7 @@ def test_parse_predicate_and(valid_query):
     
 @pytest.mark.parametrize("valid_query", ["1 + 2 OR a", " a > b OR c > d", "a = b AND c=d OR e = f"])
 def test_parse_predicate_or(valid_query):
-    parser = QueryParser(valid_query)
+    parser = Parser(valid_query)
     parser.scan()
     parser.iter_token = iter(parser.token)
     parser.advance_token()
@@ -363,6 +363,6 @@ def test_parse_predicate_or(valid_query):
     
 @pytest.mark.parametrize("valid_query", ["select * from abc", "select * from abc.xyz.dfa"])
 def test_parse_token_from(valid_query):
-    parser = QueryParser(valid_query)
+    parser = Parser(valid_query)
     parser.scan()
     print(parser.token)
