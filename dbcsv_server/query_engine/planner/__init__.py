@@ -1,8 +1,11 @@
 
 from functools import partial
 from typing import Any, Iterator
+import operator
+from functools import partial
 
-from .ast_node import (
+
+from ..ast_node import (
         SelectNode, 
         FromNode, 
         WhereNode, 
@@ -10,8 +13,11 @@ from .ast_node import (
         PredicateCompareNode,
         ColumnListNode,
         ExprNode,
+        ExprAddNode,
         ExprMultiNode,
-        ExprValueNode
+        ExprValueNode,
+        ExprParentNode,
+        ValueNode
     )
 
 
@@ -25,10 +31,18 @@ class QueryPlanner:
         pass
     
     def visit(self, node: Any, *args, **kwargs):
-        pass
+        print("He*****llo" , node)
+        handler = self.get_node_handler(node.type)
+        return handler(node, *args, **kwargs)
     
     def get_node_handler(self, node_type: str):
-        pass
+        match node_type:
+            case "ExprValue":
+                return self.handle_expr_value_node
+            case "Value":
+                return self.handle_value_node
+            case "ExprParent":
+                return self.handle_expr_parent_node
     
     def handle_select_clause(self, node: SelectNode):
         from_iterator = self.visit(node.from_clause)
@@ -54,18 +68,23 @@ class QueryPlanner:
     def handle_predicate_compare_node(self, node: PredicateCompareNode):
         pass
     
-    
     def handle_expr_multi_node(self, node: ExprMultiNode):
         left = self.visit(node.left)
         if node.right:
             right = self.visit(node.right)
-        
-    
+            
     def handle_expr_value_node(self, node: ExprValueNode, data):
-        if node.expr.name and node.expr.name == "IDENTIFIER":
-            return data[node.expr[1]]
-        return node.expr
+        if isinstance(node.expr, ValueNode):
+            return partial(lambda x: x, self.visit(node.expr)())
+        return partial(lambda x: x, node.expr[1])
     
+    def handle_value_node(self, node: ValueNode, data) -> partial:
+        if isinstance(node.expr, ExprParentNode):
+            return partial(lambda x: x, self.visit(node.expr, data)())
+        return partial(lambda x: x, node.expr)
+    
+    def handle_expr_parent_node(self, node: ExprParentNode, data) -> partial:
+        return self.visit()
     
             
         #and or

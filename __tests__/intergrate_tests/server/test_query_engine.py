@@ -52,7 +52,7 @@ def test_unclose_liter_string(invalid):
                 (ReservedWord.SELECT, ),
                 (Token.ASTERISK, ),
                 (ReservedWord.FROM, ), 
-                (Token.INDENTIFIER, "INFORMATION_SCHEMA")
+                (Token.IDENTIFIER, "INFORMATION_SCHEMA")
             ]
         ),
         (
@@ -72,9 +72,9 @@ def test_unclose_liter_string(invalid):
                 (Token.COMMA, ),
                 (Token.STRING_LITERAL, "ABC"),
                 (ReservedWord.AS, ),
-                (Token.INDENTIFIER, "TEST"),
+                (Token.IDENTIFIER, "TEST"),
                 (ReservedWord.FROM, ),
-                (Token.INDENTIFIER, "A")
+                (Token.IDENTIFIER, "A")
             ]
         ),
         (

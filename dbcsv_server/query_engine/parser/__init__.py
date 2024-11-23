@@ -12,9 +12,6 @@ from ..ast_node import (
     ColumnNode,
     ColumnNameNode,
     ColumnWildCardNode,
-    ArimethicNode,
-    TermNode,
-    FactorNode,
     ExprNode, 
     WhereNode,
     FromNode,
@@ -43,6 +40,7 @@ class Parser:
         self.current_character = next(self.iter_query_string)
         self.last_character = None
         self.character_count = 1
+        self.token_index = 0
     
     def next_character(self):
         try:
@@ -188,7 +186,7 @@ class Parser:
                                 # Check again if they are valid regex for identifier 
                                 if not re.search("^[^\d\W]\w*\Z", whole_word):
                                     raise ValueError(f"Invalid token [{whole_word}]")
-                                self.token.append((Token.INDENTIFIER, whole_word))
+                                self.token.append((Token.IDENTIFIER, whole_word))
                                 continue   
                         # Ignore character space|\t|\r\n
                         elif re.search(r"[ \t\r\n]", self.current_character):
@@ -208,6 +206,7 @@ class Parser:
         """
         try:
             self.current_token = next(self.iter_token)
+            self.token_index = self.token_index + 1
         except StopIteration:
             self.current_token = None
             pass
@@ -259,7 +258,7 @@ class Parser:
                 )
         
     def parse_from_clause(self) -> FromNode:
-        if self.match_token(Token.INDENTIFIER):
+        if self.match_token(Token.IDENTIFIER):
             return FromNode(expr=self.current_token[1])
         return None
     
@@ -272,7 +271,6 @@ class Parser:
         """
         # 
         current_left = ColumnListNode(left=self.parse_column(), right=None, operator=None)
-        print(self.current_token)
         while self.match_token(Token.COMMA): 
             operator = self.current_token[0]
             self.advance_token()
@@ -288,11 +286,14 @@ class Parser:
             column_node = ColumnNode(expr=self.parse_column_wild_card())
             return column_node
         else:
+            star_index = self.token_index
             column_node = ColumnNode(expr = self.parse_expr())
+            column_node.name = " ".join([str(value[1]) if len(value) > 1 else value[0].value for value in self.token[star_index-1:self.token_index]])
+            
             if self.current_token and not self.match_token(ReservedWord.FROM):
                 if self.match_token(Token.COMMA):
                     return column_node
-                elif self.match_token(ReservedWord.AS) or self.match_token(Token.INDENTIFIER):
+                elif self.match_token(ReservedWord.AS) or self.match_token(Token.IDENTIFIER):
                     print(f"match AS {self.current_token}" )
                     self.advance_token()
                     column_node.alias = self.current_token

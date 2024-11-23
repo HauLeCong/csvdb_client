@@ -6,9 +6,6 @@ from typing import Tuple, List
 from dbcsv_server.query_engine.parser import Parser
 from dbcsv_server.query_engine.parser.predicate_parser import PredicateParser
 from dbcsv_server.query_engine.ast_node import (
-    FactorNode, 
-    TermNode, 
-    ArimethicNode, 
     ColumnNode, 
     ColumnListNode, 
     ColumnNameNode, 
@@ -22,10 +19,15 @@ from dbcsv_server.query_engine.ast_node import (
     PredicateAndNode,
     PredicateNotNode,
     PredicateCompareNode,
-    PredicateParentNode
+    PredicateParentNode,
+    ExprValueNode,
+    ValueNode,
+    ExprParentNode
 ) 
 from dbcsv_server.query_engine.token import Token
-from dbcsv_server.query_engine.planner import QueryPlanner
+from dbcsv_server.query_engine.planner.handler.expression_handler import ExpressionHandler
+from dbcsv_server.query_engine.planner.handler.column_list_handler import ColumnListHandler
+from dbcsv_server.query_engine.parser.expression_parser import ExpressionParser
 from dbcsv_server.query_engine.visitor import ASTPrinter
 
 def print_tree(node):
@@ -157,37 +159,6 @@ def test_parse_select(select_query):
     print(select_clause)
     assert isinstance(select_clause, SelectNode)
 
-def test_return_value_column_node():
-    c = ColumnNode(
-        expr=ExprNode(
-            expr=ArimethicNode(
-                left=ArimethicNode(
-                    left=ArimethicNode(
-                        left=TermNode(
-                            left=FactorNode(expr=1.0), 
-                            right=None, 
-                            operator=None
-                        ), 
-                        right=None, 
-                        operator=None
-                    ), 
-                    right=TermNode(
-                        left=FactorNode(expr=2.0), 
-                        right=None, operator=None), 
-                    operator=Token.PLUS
-                    ), 
-                right=TermNode(
-                    left=FactorNode(expr=3.0),
-                    right=None, operator=None
-                    ), 
-                operator=Token.PLUS
-            )
-        ), 
-        alias=None)   
-    query_planner = QueryPlanner()
-    result = query_planner.visit(c)
-    print(result)
-
     
 # @pytest.mark.parametrize("valid_query", ["select a, b, 1+2+3 from xyz"])
 # def test_return_select_node_value(valid_query):
@@ -311,3 +282,48 @@ def test_parse_token_from(valid_query):
     parser = Parser(valid_query)
     parser.scan()
     print(parser.token)
+        
+    
+@pytest.mark.parametrize("valid_query", ["select a+1-2*4"])
+def test_hanle_expression_add_node(valid_query, caller):
+    parser = Parser(valid_query)
+    parser.scan()
+    parser.iter_token = iter(parser.token)
+    parser.advance_token()
+    parser.advance_token()
+    expression_parser = ExpressionParser(parser)
+    add_node = expression_parser._parse_expr_add()
+    printer = ASTPrinter()
+    printer.visit(add_node)
+    planner = ExpressionHandler(caller)
+    result = planner.handle_expression_add_node(add_node)
+    assert result == 1+1-2*4
+   
+@pytest.mark.parametrize("valid_query", ["select a+1-2*4"]) 
+def test_handle_column_node(valid_query, caller):
+    parser = Parser(valid_query)
+    parser.scan()
+    parser.iter_token = iter(parser.token)
+    parser.advance_token()
+    parser.advance_token()
+    column_node = parser.parse_column()
+    printer = ASTPrinter()
+    print(column_node.name)
+    printer.visit(column_node)
+    planner = ColumnListHandler(caller)
+    result = planner.handle_column_node(column_node)
+    assert result == {f"{column_node.name}": 1+1-2*4}
+    
+@pytest.mark.parametrize("valid_query", ["select a+1-2*4, a, a as c from xyz"]) 
+def test_handle_column_node(valid_query, caller):
+    parser = Parser(valid_query)
+    parser.scan()
+    parser.iter_token = iter(parser.token)
+    parser.advance_token()
+    parser.advance_token()
+    column_list_node = parser.parse_column_list()
+    printer = ASTPrinter()
+    printer.visit(column_list_node)
+    planner = ColumnListHandler(caller)
+    result = planner.handle(column_list_node)
+    assert result == {"columns": ("A + 1 - 2 * 4", "a", "c"), "data": (-6, 1, 1)}

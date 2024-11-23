@@ -97,6 +97,7 @@ class ColumnNode:
     type =  "Column"
     expr: Union["ExprNode", "ColumnWildCardNode"]
     alias: Optional[str] = None
+    name: Optional[str] = None
     
 @dataclass
 class ColumnWildCardNode:
@@ -262,46 +263,11 @@ class LiteralNode:
 @dataclass
 class IdentifierNode:
     """
-        `<indentifier>` :: = `<str>`
+        `<Identifier>` :: = `<str>`
     """
-    type = "Indentifier"
+    type = "Identifier"
     value: str 
    
-@dataclass
-class ArimethicNode:
-    """
-        `<arimethic>` :: = `<term>`
-        | `<arimethic>` "+" `<term>`
-        | `<arimethic>` "-" `<term>`
-    """
-    type = "Arimethic"
-    left: Union["TermNode", "ArimethicNode"]
-    right: "TermNode"
-    operator: Optional["AddtionOperator"]
-    
-@dataclass
-class TermNode:
-    """
-        `<term>` :: = `<factor>`
-        | `<term>` "*" `<factor>`
-        | `<term> "/" <factor>`
-    """
-    type = "Term"
-    left: Union["FactorNode", "TermNode"]
-    right: Optional["FactorNode"]
-    operator: Optional["FactorOperator"]
-
-@dataclass
-class FactorNode:
-    """
-        `<factor>` :: = ["+"]`<literal_number>` | ["-"]`<literal_number>` | (<arimethic>)
-    """
-    type = "Factor"
-    expr: Union["LiteralNumber", "ArimethicNode"]
-    
-@dataclass
-class ComparisionNode:
-    pass
    
 @dataclass
 class LiteralNumber:

@@ -65,7 +65,7 @@ class ExpressionParser:
         Parse `ValueNode`
         Returns: `ValueNode`
         """
-        if self._caller.current_token and self._caller.match_token(Token.INDENTIFIER):
+        if self._caller.current_token and self._caller.match_token(Token.IDENTIFIER):
             value_node = ValueNode(expr=self._caller.current_token)
             self._caller.advance_token()
             return value_node
