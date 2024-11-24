@@ -20,6 +20,9 @@ from ..ast_node import (
         ValueNode
     )
 
+from .selection import Selection
+from .projection import Projection
+from .production import Production
 
 class QueryPlanner:
     """

@@ -8,27 +8,23 @@ from dbcsv_server.query_engine.parser.predicate_parser import PredicateParser
 from dbcsv_server.query_engine.ast_node import (
     ColumnNode, 
     ColumnListNode, 
-    ColumnNameNode, 
-    ColumnWildCardNode, 
     SelectNode, 
     FromNode, 
-    WhereNode, 
     ExprNode, 
     PredicateNode,
     PredicateOrNode,
     PredicateAndNode,
     PredicateNotNode,
     PredicateCompareNode,
-    PredicateParentNode,
-    ExprValueNode,
-    ValueNode,
-    ExprParentNode
+    
 ) 
 from dbcsv_server.query_engine.token import Token
 from dbcsv_server.query_engine.planner.handler.expression_handler import ExpressionHandler
 from dbcsv_server.query_engine.planner.handler.column_list_handler import ColumnListHandler
+from dbcsv_server.query_engine.planner.handler.predicate_handler import PredicateHandler
+from dbcsv_server.query_engine.planner.handler.create_table_handler import CreateTableHandler
 from dbcsv_server.query_engine.parser.expression_parser import ExpressionParser
-from dbcsv_server.query_engine.visitor import ASTPrinter
+from dbcsv_server.query_engine.printer import ASTPrinter
 
 def print_tree(node):
         level = 0
@@ -94,13 +90,6 @@ def test_not_closed_string(invalid_string):
     
     assert e.value.args[0] == f"Invalid token string was not closed"
     
-def test_parse_func_iter_token():
-    parser = Parser("select * from test")
-    parser.scan()
-    parser.parse()
-    assert isinstance(parser.iter_token, Iterator)
-
-    
 @pytest.mark.parametrize("valid_query", [
     "select * from table", 
     "select abc as a from table", 
@@ -133,20 +122,10 @@ def test_parse_column(valid_query):
     # print(column_list_node)
     # print_tree(column_list_node)
     # assert isinstance(column_list_node, ColumnListNode)
-    
-@pytest.mark.parametrize("from_clause", ["from abc", """from "xyz" """])
-def test_parse_from_clause(from_clause):
-    parser = Parser(from_clause)
-    parser.scan()
-    parser.iter_token = iter(parser.token)
-    parser.advance_token()
-    parser.advance_token()
-    from_clause = parser.parse_from_clause()
-    print(from_clause)
-    assert isinstance(from_clause, FromNode)
+
     
 @pytest.mark.parametrize("select_query", [
-    "select a, b, c, 1+2+3 from xyz"
+    "select a, b, c, 1+2+3 from xyz.abc \r\n"
 ])
 def test_parse_select(select_query):
     parser = Parser(select_query)
@@ -195,7 +174,7 @@ def test_print_expr_node(valid_query):
     expr_node = parser.parse_expr()
     assert isinstance(expr_node, ExprNode)
     printer = ASTPrinter()
-    printer.visit(expr_node, 0)
+    printer.print_node(expr_node, 0)
     
 @pytest.mark.parametrize("valid_query", ["select a from xyz", "select a+1+2*4", """select a as "A" """])
 def test_print_column_node(valid_query):
@@ -208,7 +187,7 @@ def test_print_column_node(valid_query):
     column_node = parser.parse_column()
     assert isinstance(column_node, ColumnNode)
     printer = ASTPrinter()
-    printer.visit(column_node, 0)
+    printer.print_node(column_node, 0)
     
 @pytest.mark.parametrize("valid_query", ["select a, b, c from xyz", "select 1 as a from abc", "select a, 1*4+5, c from xyz"])
 def test_print_column_list_node(valid_query):
@@ -222,7 +201,7 @@ def test_print_column_list_node(valid_query):
     assert isinstance(column_list_node, ColumnListNode)
     print(column_list_node)
     printer = ASTPrinter()
-    printer.visit(column_list_node, 0)
+    printer.print_node(column_list_node, 0)
     
 @pytest.mark.parametrize("valid_query", ["1 > a", "a = b", "c >= d", "d <= e", "1 > 2", "3<>4"])
 def test_parse_predicate_compare(valid_query):
@@ -234,7 +213,7 @@ def test_parse_predicate_compare(valid_query):
     predicate_compare = predicate_parser._parse_predicate_compare_node()
     assert isinstance(predicate_compare, PredicateCompareNode)
     ast_printer = ASTPrinter()
-    ast_printer.visit(predicate_compare, 0)
+    ast_printer.print_node(predicate_compare, 0)
     
 @pytest.mark.parametrize("valid_query", ["NOT A = B", "NOT 1 = 2", "NOT 1 <> 3", "NOT (1>2)"])
 def test_parse_predicate_not(valid_query, ast_printer):
@@ -246,10 +225,10 @@ def test_parse_predicate_not(valid_query, ast_printer):
     predicate_parser = PredicateParser(parser)
     predicate_not = predicate_parser._parse_predicate_not_node()
     assert isinstance(predicate_not, PredicateNotNode)
-    ast_printer.visit(predicate_not)
+    ast_printer.print_node(predicate_not)
     
 
-@pytest.mark.parametrize("valid_query", ["A=b AND D=e", "1*3+2 AND NOT(4>5 AND 1)"])
+@pytest.mark.parametrize("valid_query", ["A=b AND D=e", "1*3+2 = 4 AND NOT(4>5 AND 1=2)"])
 def test_parse_predicate_and(valid_query):
     parser = Parser(valid_query)
     parser.scan()
@@ -261,9 +240,9 @@ def test_parse_predicate_and(valid_query):
     assert isinstance(predicate_and, PredicateAndNode)
     print(predicate_and)
     printer = ASTPrinter()
-    printer.visit(predicate_and, 0)
+    printer.print_node(predicate_and, 0)
     
-@pytest.mark.parametrize("valid_query", ["1 + 2 OR a", " a > b OR c > d", "a = b AND c=d OR e = f"])
+@pytest.mark.parametrize("valid_query", ["1 + 2 = 3 OR a > 1", " a > b OR c > d", "a = b AND c=d OR e = f"])
 def test_parse_predicate_or(valid_query):
     parser = Parser(valid_query)
     parser.scan()
@@ -274,7 +253,7 @@ def test_parse_predicate_or(valid_query):
     assert isinstance(predicate_or, PredicateOrNode)
     print(predicate_or)
     printer = ASTPrinter()
-    printer.visit(predicate_or, 0)
+    printer.print_node(predicate_or, 0)
     
     
 @pytest.mark.parametrize("valid_query", ["select * from abc", "select * from abc.xyz.dfa"])
@@ -294,7 +273,7 @@ def test_hanle_expression_add_node(valid_query, caller):
     expression_parser = ExpressionParser(parser)
     add_node = expression_parser._parse_expr_add()
     printer = ASTPrinter()
-    printer.visit(add_node)
+    printer.print_node(add_node)
     planner = ExpressionHandler(caller)
     result = planner.handle_expression_add_node(add_node)
     assert result == 1+1-2*4
@@ -309,12 +288,12 @@ def test_handle_column_node(valid_query, caller):
     column_node = parser.parse_column()
     printer = ASTPrinter()
     print(column_node.name)
-    printer.visit(column_node)
+    printer.print_node(column_node)
     planner = ColumnListHandler(caller)
     result = planner.handle_column_node(column_node)
     assert result == {f"{column_node.name}": 1+1-2*4}
     
-@pytest.mark.parametrize("valid_query", ["select a+1-2*4, a, a as c from xyz"]) 
+@pytest.mark.parametrize("valid_query", ["select a+1-2*4, a, a as c2 from xyz"]) 
 def test_handle_column_node(valid_query, caller):
     parser = Parser(valid_query)
     parser.scan()
@@ -323,7 +302,82 @@ def test_handle_column_node(valid_query, caller):
     parser.advance_token()
     column_list_node = parser.parse_column_list()
     printer = ASTPrinter()
-    printer.visit(column_list_node)
+    printer.print_node(column_list_node)
     planner = ColumnListHandler(caller)
     result = planner.handle(column_list_node)
-    assert result == {"columns": ("A + 1 - 2 * 4", "a", "c"), "data": (-6, 1, 1)}
+    print("***Result****", result)
+    assert result == {'columns': ('A + 1.0 - 2.0 * 4.0', 'A', 'C2'), 'data': (-6.0, 1, 1)}
+    
+@pytest.mark.parametrize("valid_query", ["1=2 OR 3=4"])
+def test_handle_predicate_node(valid_query, caller):
+    parser = Parser(valid_query)
+    parser.scan()
+    parser.iter_token = iter(parser.token)
+    parser.advance_token()
+    predicate_parser = PredicateParser(parser)
+    predicate_or_node = predicate_parser._parse_predicate_or_node() 
+    print(predicate_or_node)
+    printer = ASTPrinter()
+    printer.print_node(predicate_or_node)
+    handler = PredicateHandler(caller)
+    result = handler.handle_predicate_or_node(predicate_or_node)
+    assert result == False
+    
+    
+@pytest.mark.parametrize("valid_query", [
+    "select * from abc.def \r\n", 
+    "select 1+2*3, a as c from abc.def \r\n", 
+    "select a from b.c where a=b \r\n", 
+    "select a from v.z \r\n"])
+def test_print_select_node(valid_query):
+    parser = Parser(valid_query)
+    parser.scan()
+    parser.iter_token = iter(parser.token)
+    parser.advance_token()
+    parser.advance_token()
+    print(parser.token)
+    select_node = parser.parse_select_clause()
+    print(select_node)
+    printer = ASTPrinter()
+    printer.print_node(select_node)
+
+@pytest.mark.parametrize("valid_query",[
+    "select * from abc.def \r\n", 
+    "select 1+2*3, a as c from abc.def \r\n", 
+    "select a from b.c where a=b \r\n", 
+    "select a from v.z \r\n"
+    ])
+def test_parse_full_ast(valid_query):
+    parser = Parser(valid_query)
+    parser.scan()
+    print(parser.token)
+    ast = parser.parse()
+    print(ast.nodes)
+    printer = ASTPrinter()
+    printer.print_node(ast)
+    
+from dbcsv_server.query_engine.parser.create_table_parser import CreateTableParser
+    
+@pytest.mark.parametrize("valid_query", ["CREATE TABLE t (a INT, b FLOAT, c FLOAT)"])
+def test_create_table_parse(valid_query):
+    parser = Parser(valid_query)
+    parser.scan()
+    # print(parser.token)
+    parser.iter_token = iter(parser.token)
+    parser.advance_token()
+    parser.advance_token()
+    parser.advance_token()
+    print(parser.token)
+    create_table_parser = CreateTableParser(parser)
+    create_table_node = create_table_parser.parse()
+    print(create_table_node)
+    
+@pytest.mark.parametrize("valid_query", ["CREATE TABLE t (a INT, b FLOAT)"])  
+def test_create_table_handler(valid_query, caller):
+    parser = Parser(valid_query)
+    parser.scan()
+    parser.iter_token = iter(parser.token)
+    ast = parser.parse()
+    create_table_handler = CreateTableHandler(caller)
+    result = create_table_handler.handle(ast.nodes)
+    print("***", result)

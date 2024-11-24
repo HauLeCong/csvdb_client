@@ -12,7 +12,8 @@ class AST:
     """
         `<root>` :: = `<select>` | `<create>`  
     """
-    nodes: Union["SelectNode", "CreateTableNode"]
+    type = "AST"
+    nodes: Union["SelectNode"]
 
 @dataclass
 class SelectNode:
@@ -27,11 +28,11 @@ class SelectNode:
 @dataclass
 class CreateTableNode:
     """
-        `<create_table>` ::= CREATE TABLE `<table_name>` `<table_element_list>`
+        `<create_table>` ::= CREATE TABLE `<table_name>` `<table_definition_group>`
     """
     type = "Create"
-    table_name: "IdentifierNode"
-    table_element_list: "TableElementListNode"
+    table_name: "TableNameNode"
+    table_definition_group: "TableDefinitionGroupNode"
     
 @dataclass
 class WhereNode:
@@ -44,37 +45,62 @@ class WhereNode:
 @dataclass
 class FromNode:
     """
-        `<from_clause>` ::= FROM `<source>`
+        `<from_clause>` ::= FROM `<database>`.`<table_name>`
     """
     type =  "From"
-    expr: "IdentifierNode"
+    database: "DatabaseNode"
+    table_name: "TableNameNode" = None
     
 @dataclass
-class Source:
+class DatabaseNode:
     """
-        `<source>` ::= `<source_list>`
+        `<database>` ::= `<str>`
     """
-    type = "Source"
-    expr: "SourceListNode"
-        
+    type = "Database"
+    expr: str
+
 @dataclass
-class SourceListNode:
+class TableNameNode:
     """
-        `<source_list>` ::= `<source_list>`.`<source_name>` | `<source_name>`
+        `<table_name>` ::= `<str>`
     """
-    type = "SourceList"
-    left: Union["SourceListNode", "SourceNameNode"]
-    right: "SourceNameNode"
+    type = "TableName"
+    expr: str
     
 @dataclass
-class SourceNameNode:
+class TableDefinitionGroupNode:
     """
-        `<schema_name>` ::= `<identifier>`
+        `<table_definition_group>` ::= (`<tablel_definition_list>`)
+    """   
+    type = "TableDefinitionGroup" 
+    table_definition_list: "TableDefinitionListNode"
+
+@dataclass
+class TableDefinitionListNode:
     """
-    type = "SourceName"
-    expr: "IdentifierNode"
- 
-    
+        `<table_definition_list>` ::= `<table_definition>`, `<table_definition_list>`
+    """
+    type = "TableDefinitionList"
+    left: Union["TableDefinitionListNode", "TableDefinitionNode"]
+    right: "TableDefinitionNode"
+
+@dataclass
+class TableDefinitionNode:
+    """
+        `<table_definition_node>` ::= `<column_name>` `<column_definition>`
+    """
+    type = "TableDefinitionNode"
+    column_name: str
+    column_definition: "ColumnDefinitionNode"
+
+@dataclass
+class ColumnDefinitionNode:
+    """
+        `<column_definition>` ::= `<type_name>`
+    """
+    type = "ColumnDefinition"
+    type_name: str
+
 @dataclass
 class ColumnListNode:
     """
@@ -106,30 +132,6 @@ class ColumnWildCardNode:
     """
     type = "ColumnWildCard"
     values = "*"
-    
-@dataclass
-class ColumnNameNode:
-    """
-        `<column_name>` ::= `<identifier>`
-    """
-    type = "ColumnName"
-    expr: "IdentifierNode"
-
-@dataclass
-class TableElementListNode:
-    """
-        `<table_element_list>` ::= "(" `<table_element>`[{"," `<table_element>`}] ")"
-    """
-    type = "TableElementList"
-    expr: "TableElementNode"
-    
-@dataclass
-class TableElementNode:
-    """
-        `<table_element>` ::= `<identifier>`
-    """
-    type = "TableElement"
-    expr: "IdentifierNode"
     
 @dataclass
 class PredicateNode:

@@ -1,6 +1,4 @@
 
-from typing import List
-from enum import Enum
 import re
 
 from ..token import ReservedWord, Token
@@ -10,17 +8,17 @@ from ..ast_node import (
     CreateTableNode,
     ColumnListNode,
     ColumnNode,
-    ColumnNameNode,
     ColumnWildCardNode,
     ExprNode, 
     WhereNode,
     FromNode,
-    ExprAddNode,
-    ExprMultiNode,
-    ExprValueNode,
     PredicateNode,
-    ValueNode
+    DatabaseNode, TableNameNode
 )
+
+__all__ = [
+    "Parser"
+]
 
 class Parser:
     """
@@ -215,7 +213,7 @@ class Parser:
         """
         Check if current token match a Token|ReservedWord class
         """
-        if self.current_token[0] == token:
+        if self.current_token and self.current_token[0] == token:
             return True
         return False
     
@@ -223,6 +221,7 @@ class Parser:
         """
         Create ast tree 
         """
+        self.scan()
         self.iter_token = iter(self.token)  
         self.advance_token()
         if self.match_token(ReservedWord.SELECT):
@@ -232,7 +231,8 @@ class Parser:
             self.advance_token()
             if not self.match_token(ReservedWord.TABLE):
                 raise ValueError(f"Expect token CREATE got {self.current_token}")
-            ast = AST(self.parse_create_clause)
+            self.advance_token()
+            ast = AST(self.parse_create_clause())
         else:
             raise ValueError(f"Invalid query expect SELECT or CREATE TABLE command got f{self.current_token}")
         return ast
@@ -245,10 +245,10 @@ class Parser:
         column_list = self.parse_column_list() 
         from_clause = None
         where_clause = None
-        if self.match_token(ReservedWord.FROM):
+        if self.current_token and self.match_token(ReservedWord.FROM):
             self.advance_token()
             from_clause = self.parse_from_clause()
-            if self.match_token(ReservedWord.WHERE):
+            if self.current_token and self.match_token(ReservedWord.WHERE):
                 self.advance_token()
                 where_clause = self.parse_where_clause()
         return SelectNode(
@@ -259,8 +259,17 @@ class Parser:
         
     def parse_from_clause(self) -> FromNode:
         if self.match_token(Token.IDENTIFIER):
-            return FromNode(expr=self.current_token[1])
-        return None
+            from_node = FromNode(database=DatabaseNode(expr=self.current_token))
+            self.advance_token()
+            if self.current_token and self.match_token(Token.DOT):
+                self.advance_token()
+                if self.current_token and self.match_token(Token.IDENTIFIER):
+                    from_node.table_name = TableNameNode(expr=self.current_token)
+                    self.advance_token()
+                    return from_node
+                raise RuntimeError(f"Expect table name got {self.current_token}")
+            raise RuntimeError(f"Unexpect token {self.current_token}")
+        raise RuntimeError(f"Expect database name got {self.current_token}")
     
     def parse_where_clause(self) -> WhereNode:
         return WhereNode(expr=self.parse_predicate())
@@ -288,7 +297,7 @@ class Parser:
         else:
             star_index = self.token_index
             column_node = ColumnNode(expr = self.parse_expr())
-            column_node.name = " ".join([str(value[1]) if len(value) > 1 else value[0].value for value in self.token[star_index-1:self.token_index]])
+            column_node.name = " ".join([str(value[1]) if len(value) > 1 else value[0].value for value in self.token[star_index-1:self.token_index-1]])
             
             if self.current_token and not self.match_token(ReservedWord.FROM):
                 if self.match_token(Token.COMMA):
@@ -323,5 +332,7 @@ class Parser:
         return column_wild_card
                    
     def parse_create_clause(self) -> CreateTableNode:
-        pass
+        from .create_table_parser import CreateTableParser
+        create_table_parser = CreateTableParser(self)
+        return create_table_parser.parse()
     

@@ -1,7 +1,9 @@
-from .query_engine.parser import QueryParser, QueryPlanner, ExecutionPlan
+from .query_engine.parser import Parser, ExecutionPlan
 from .connection import ConnectionIdentity
 from .query_executor import QueryExecutor
 from .transaction_manager import TransactionManager
+from .query_engine.planner import Selection, Production, Projection
+from .query_engine.ast_node import SelectNode, CreateTableNode
 from typing import Dict
 
 class DBController:
@@ -40,10 +42,10 @@ class DBController:
         if con.closed == True:
             raise SystemError("Cannot operate on closed connection")
         try:
-            query_parser = QueryParser()
-            ast = query_parser.parse(sql_str)
-            query_planner = QueryPlanner()
-            plan = query_planner.build(ast)
+            query_parser = Parser(sql_str)
+            ast = query_parser.parse()
+            if isinstance(ast.nodes, SelectNode):
+                plan = Projection(ast.nodes.column_list, Selection(ast.nodes.where_clause, Production())) 
             query_executor = QueryExecutor()
             execute_task = query_executor.create_task(con, plan)
             query_id = self.transaction_manager.add_task_execute(con, execute_task)

@@ -22,9 +22,6 @@ class ExpressionHandler(BaseHandler):
     
     def __init__(self, caller):
         super().__init__(caller)
-        if not self._caller._data:
-            raise RuntimeError(f"Data not found")
-        self._data = self._caller._data
        
     def get_node_handler(self, node_type: str):
         match node_type:
@@ -45,7 +42,7 @@ class ExpressionHandler(BaseHandler):
             
     def handle(self, node: ExprNode):
         if not isinstance(node, ExprNode):
-            raise ValueError(f"Expected an expression got {self.node.__class__.__name__}")
+            raise ValueError(f"Expected an expression got {node.__class__.__name__}")
         return self.handle_expression_add_node(node.expr)
         
     def handle_expression_add_node(self, expr_add_node: ExprAddNode):
@@ -71,7 +68,7 @@ class ExpressionHandler(BaseHandler):
         if isinstance(value_node.expr, ExprParentNode):
             return self.call_handler(value_node.expr)
         try:
-            return self._data[value_node.expr[1]]
+            return self._caller.data[value_node.expr[1]]
         except KeyError:
             raise RuntimeError(f"Column {value_node.expr[1]} not found")
     

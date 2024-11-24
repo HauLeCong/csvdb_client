@@ -1,7 +1,6 @@
 from typing import Any, Dict
 
 from .base_handler import BaseHandler
-from ..projection import Projection
 from ...ast_node import ColumnListNode, ColumnWildCardNode, ColumnNode
 
 
@@ -9,10 +8,8 @@ class ColumnListHandler(BaseHandler):
     
     def __init__(self, caller):
         super().__init__(caller)
-        if not self._caller._data:
-            raise RuntimeError(f"Data not found")
-        self._data = self._caller._data
-        self.holding_left = None
+        self.holding_right = []
+        self.holding_left = []
         
     def get_node_handler(self, node_type: str):
         match node_type:
@@ -34,22 +31,30 @@ class ColumnListHandler(BaseHandler):
         Returns:
             Dict: return a dict which seperate key from value make sure that key, value have same number of elements
         """
-        
-        left_result = self.call_handler(node.left)
-        left_keys, left_values = tuple(left_result.keys()), tuple(left_result.values())
-        if node.right:
-            right_result = self.call_handler(node.right)
-            right_keys, right_values = tuple(right_result.keys()), tuple(right_result.values())
-            return dict(columns=left_keys+right_keys, data=left_values+right_values)
-        return dict(columns=left_keys, data=left_values)
-            
+        left_value = None
+        if isinstance(node.left, ColumnListNode):
+            self.call_handler(node.left)
+            if node.right:
+                print("ever call this ?")
+                right_value = self.call_handler(node.right)
+                self.holding_right.append(right_value)
+                print(self.holding_right)
+        else:
+            left_value = self.call_handler(node.left)
+            self.holding_left.append(left_value)
+        left_keys = tuple([k for i in self.holding_left for k in i.keys()])
+        right_keys = tuple([k for i in self.holding_right for k in i.keys()])
+        left_values = tuple([k for i in self.holding_left for k in i.values()])
+        right_values = tuple([k for i in self.holding_right for k in i.values()])
+        return dict(columns = left_keys + right_keys, data = left_values + right_values) 
+    
     def handle_column_node(self, node: ColumnNode) -> Dict:
         if isinstance(node.expr, ColumnWildCardNode):
-            return self._data
+            return self._caller.data
         from .expression_handler import ExpressionHandler
-        expr_handler = ExpressionHandler(self)
+        expr_handler = ExpressionHandler(self._caller)
         expr_value = expr_handler.handle(node.expr)
-        return {f"{node.name}": expr_value} if not node.alias else {f"{node.alias}": expr_value}
+        return {f"{node.name}": expr_value} if not node.alias else {f"{node.alias[1]}": expr_value}
         
         
     

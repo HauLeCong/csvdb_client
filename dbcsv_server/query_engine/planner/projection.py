@@ -1,21 +1,9 @@
 from ..ast_node import (
-    ColumnListNode,
-    ColumnNode,
-    ColumnWildCardNode,
-    ExprNode, 
-    ExprAddNode, 
-    ExprMultiNode, 
-    ExprValueNode, 
-    ValueNode, 
-    ExprParentNode
+    ColumnListNode
 )
 
-
-from ..token import Token, ReservedWord
-from operator import add, sub, mul, truediv, lt, gt, le, ge, or_, and_, xor, not_
-from typing import List, Dict
-
-
+from typing import Iterator
+from .handler.column_list_handler import ColumnListHandler
 
 class Projection:
     
@@ -23,18 +11,19 @@ class Projection:
         This class is mimic Project relatinal algebra
     """
     
-    def __init__(self, projection: ColumnListNode, source: List[Dict]):
-        self.projection = projection
+    def __init__(self, node: ColumnListNode, source: Iterator):
+        self.projection = node
         self.source = source
+        self.data = None
+        self.projection_hanlder = ColumnListHandler(self)
         
-    
-    
     def __iter__(self):
         return self
     
     def __next__(self):
         try:
-            row_result = self.get_node_handler(self.projection, next(self.source))
+            self.data = next(self.source)
+            row_result = self.projection_hanlder.call_handler(self.projection)
             return row_result
         except StopIteration:
             raise 

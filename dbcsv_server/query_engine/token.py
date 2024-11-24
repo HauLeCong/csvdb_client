@@ -11,6 +11,9 @@ class ReservedWord(Enum):
     NULL = "NULL"
     OR = "OR"
     AND = "AND"
+    INT = "INT"
+    STRING = "STRING"
+    FLOAT = "FLOAT"
 
 class Token(Enum):
     DOT = "."

@@ -14,6 +14,8 @@ from ...token import Token, ReservedWord
 
 from operator import *
 
+__all__ = ["PredicateHandler"]
+
 ops = {
     Token.LESS_THAN: lt,
     Token.GREATER_THAN: gt,
@@ -29,9 +31,6 @@ class PredicateHandler(BaseHandler):
     
     def __init__(self, caller):
         super().__init__(caller)
-        if not self._caller.data:
-            raise RuntimeError(f"Data not found")
-        self._data = self._caller.data
         
     def get_node_handler(self, node_type: str):
         match node_type:

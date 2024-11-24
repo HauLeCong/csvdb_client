@@ -1,7 +1,7 @@
 import pytest
 
 from dbcsv_server.query_engine.parser import Parser
-from dbcsv_server.query_engine.visitor import ASTPrinter
+from dbcsv_server.query_engine.printer import ASTPrinter
 from dataclasses import dataclass
 
 class MocKQueryParser:
@@ -26,6 +26,6 @@ def ast_printer():
 def caller():
     @dataclass
     class Caller:
-        _data: any
+        data: any
         
-    return Caller(_data=dict(A=1))
+    return Caller(data=dict(A=1))

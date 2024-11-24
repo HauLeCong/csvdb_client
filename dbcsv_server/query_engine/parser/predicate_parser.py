@@ -9,6 +9,7 @@ from ..ast_node import (
 from . import Parser
 from ..token import Token, ReservedWord
 
+__all__ = ["PredicateParser"]
 
 class PredicateParser:
     """
@@ -99,10 +100,11 @@ class PredicateParser:
                 )
             return predicate_parent
         else:
-            current_left = PredicateCompareNode(
-                left=self._caller.parse_expr(), right=None, operator=None
-            )
-            while self._caller.current_token and (
+            current_left = self._caller.parse_expr()
+            # PredicateCompareNode(
+            #     left=self._caller.parse_expr(), right=None, operator=None
+            # )
+            if self._caller.current_token and (
                 self._caller.match_token(Token.EQUAL)
                 or self._caller.match_token(Token.GREATER_THAN)
                 or self._caller.match_token(Token.LESS_THAN)
@@ -112,13 +114,10 @@ class PredicateParser:
             ):
                 current_operator = self._caller.current_token[0]
                 self._caller.advance_token()
-                previous_left = current_left
-                current_left = PredicateCompareNode(
-                    left=previous_left,
-                    right=self._caller.parse_expr(),
-                    operator=current_operator,
-                )
-            return current_left
+                current_right = self._caller.parse_expr()
+                return PredicateCompareNode(left=current_left, right=current_right, operator=current_operator)
+            else:
+                raise RuntimeError(f"Missing expression condition")
 
     def _parse_predicate_parent(self) -> PredicateParentNode:
         """
