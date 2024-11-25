@@ -1,5 +1,13 @@
 from ..token import Token, ReservedWord
-from ..ast_node import CreateTableNode, TableNameNode, TableDefinitionGroupNode, TableDefinitionListNode, TableDefinitionNode, ColumnDefinitionNode
+from ..ast_node import (
+    CreateTableNode, 
+    TableNameNode, 
+    TableDefinitionGroupNode, 
+    TableDefinitionListNode, 
+    TableDefinitionNode, 
+    ColumnDefinitionNode,
+    DatabaseNode
+)
 from . import Parser
 
 class CreateTableParser:
@@ -7,12 +15,20 @@ class CreateTableParser:
     def __init__(self, caller: Parser):
         self._caller = caller
         
-    
     def parse(self) -> CreateTableNode:
-        table_name = TableNameNode(expr=self._caller.current_token)
-        self._caller.advance_token()
-        table_definition_group = self._parse_table_definition_group()
-        return CreateTableNode(table_name=table_name, table_definition_group=table_definition_group)
+        if self._caller.match_token(Token.IDENTIFIER):
+            database = DatabaseNode(expr=self._caller.current_token)
+            self._caller.advance_token()
+            if self._caller.match_token(Token.DOT):
+                self._caller.advance_token()
+                if self._caller.match_token(Token.IDENTIFIER):
+                    table_name = TableNameNode(expr = self._caller.current_token)
+                    self._caller.advance_token()
+                    table_definition_group = self._parse_table_definition_group()
+                    return CreateTableNode(database= database, table_name=table_name, table_definition_group=table_definition_group)
+                raise ValueError(f"Expect table name got {self._caller.current_token}")
+            raise ValueError(f"Unexpect token {self._caller.current_token}")
+        raise ValueError(f"Expect database name got {self._caller.current_token}")
     
     def _parse_table_definition_group(self) -> TableDefinitionNode:
         if self._caller.match_token(Token.LEFT_PAREN):

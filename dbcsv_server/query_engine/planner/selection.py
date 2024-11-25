@@ -5,11 +5,10 @@ from .handler.predicate_handler import PredicateHandler
 
 class Selection:
     
-    def __init__(self, node: PredicateNode, source: Iterator[Production]):
+    def __init__(self, source: Iterator[Production], node: PredicateNode = None):
         self.source = source
-        self.data = None
         self.selection = node
-        self.selection_handler = PredicateHandler(self)
+        self.data = None
       
     def __iter__(self):
         return self
@@ -17,7 +16,10 @@ class Selection:
     def __next__(self):
         try:
             self.data = next(self.source)
-            row_result = self.selection_handler(self.selection)
-            return row_result
+            if self.selection:
+                predicate_handler = PredicateHandler(self)
+                predicate = predicate_handler.handle(self.selection)
+                return {"data": self.data, "predicate":  predicate}
+            return {"data": self.data, "predicate": True}
         except StopIteration:
             raise 

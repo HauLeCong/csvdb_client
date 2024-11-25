@@ -358,7 +358,7 @@ def test_parse_full_ast(valid_query):
     
 from dbcsv_server.query_engine.parser.create_table_parser import CreateTableParser
     
-@pytest.mark.parametrize("valid_query", ["CREATE TABLE t (a INT, b FLOAT, c FLOAT)"])
+@pytest.mark.parametrize("valid_query", ["CREATE TABLE t.data (a INT, b FLOAT, c FLOAT)"])
 def test_create_table_parse(valid_query):
     parser = Parser(valid_query)
     parser.scan()
@@ -367,12 +367,12 @@ def test_create_table_parse(valid_query):
     parser.advance_token()
     parser.advance_token()
     parser.advance_token()
-    print(parser.token)
+    print(parser.current_token)
     create_table_parser = CreateTableParser(parser)
     create_table_node = create_table_parser.parse()
     print(create_table_node)
     
-@pytest.mark.parametrize("valid_query", ["CREATE TABLE t (a INT, b FLOAT)"])  
+@pytest.mark.parametrize("valid_query", ["CREATE TABLE a.t (a INT, b FLOAT)"])  
 def test_create_table_handler(valid_query, caller):
     parser = Parser(valid_query)
     parser.scan()
@@ -381,3 +381,57 @@ def test_create_table_handler(valid_query, caller):
     create_table_handler = CreateTableHandler(caller)
     result = create_table_handler.handle(ast.nodes)
     print("***", result)
+
+
+from dbcsv_server.query_engine.planner.table_creation import TableCreation
+    
+@pytest.mark.parametrize("valid_query", ["CREATE TABLE a.t (a STRING, b STRING)"])
+def test_creation_table(valid_query, caller):
+    parser = Parser(valid_query)
+    ast_node = parser.parse()
+    table_creation = TableCreation(ast_node.nodes)
+    assert table_creation._get_create_column_list() == [{"column_name": "A", "column_type": "STRING"},{"column_name": "B", "column_type": "STRING"}]
+
+
+from dbcsv_server.connection import ConnectionIdentity
+from dbcsv_server.data_storage import FileManager
+from dbcsv_server.query_engine.planner.production import Production
+from dbcsv_server.query_engine.planner.projection import Projection
+from dbcsv_server.query_engine.planner.selection import Selection
+from pathlib import Path
+
+@pytest.mark.parametrize("valid_query", ["SELECT col3 + 2 * 3 AS E FROM A.T WHERE col3 = 1\r\n"])
+def test_all_relational_operator(valid_query):
+    con = ConnectionIdentity(Path("data/storage"))
+    file_manager = FileManager()
+    parser = Parser("CREATE TABLE A.T (col1 STRING, col2 STRING, col3 FLOAT)")
+    ast_nodes = parser.parse()
+    table_creation = TableCreation(ast_nodes.nodes)
+    database = table_creation._get_create_database()
+    columns_definition = table_creation._get_create_column_list()
+    table_name = table_creation._get_create_table_name()
+    assert table_name == "T"
+    assert columns_definition == [{"column_name": "COL1", "column_type": "STRING"}, {"column_name": "COL2", "column_type": "STRING"}, {"column_name": "COL3", "column_type":"FLOAT"}]
+    result_file = file_manager.create_table_file(con, database, table_name, columns_definition)
+    assert result_file.exists()
+    
+    #Insert mock data
+    with open(f"data/storage/{database}/{table_name}.csv", "a") as r:
+        r.write("A, B, 1")
+        
+    data_select = file_manager.select_file(con, database, table_name)
+    print(data_select)
+    assert data_select == [{'COL1': 'A', 'COL2': ' B', 'COL3': 1}]
+    
+    parser = Parser(valid_query)
+    ast_nodes = parser.parse()
+    from functools import partial
+    production = Production(ast_nodes.nodes.from_clause, partial(file_manager.select_file, con = con))
+    assert production.source == [{'COL1': 'A', 'COL2': ' B', 'COL3': 1}]
+    
+    selection = Selection(node = ast_nodes.nodes.where_clause.expr,source= production)
+    
+    projection = Projection(ast_nodes.nodes.column_list, selection)
+    row_result = next(projection)
+    print("****", row_result)
+    assert row_result == {'columns': ('E', ), 'data': (7, )}

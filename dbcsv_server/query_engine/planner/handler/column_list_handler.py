@@ -35,10 +35,8 @@ class ColumnListHandler(BaseHandler):
         if isinstance(node.left, ColumnListNode):
             self.call_handler(node.left)
             if node.right:
-                print("ever call this ?")
                 right_value = self.call_handler(node.right)
                 self.holding_right.append(right_value)
-                print(self.holding_right)
         else:
             left_value = self.call_handler(node.left)
             self.holding_left.append(left_value)
@@ -55,6 +53,10 @@ class ColumnListHandler(BaseHandler):
         expr_handler = ExpressionHandler(self._caller)
         expr_value = expr_handler.handle(node.expr)
         return {f"{node.name}": expr_value} if not node.alias else {f"{node.alias[1]}": expr_value}
+    
+    def handle_column_name_wo_data(self, node: ColumnNode) -> Dict:
+        if isinstance(node.expr, ColumnWildCardNode):
+            return {f"{node.name}"}
         
         
     

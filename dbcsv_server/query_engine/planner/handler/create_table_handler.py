@@ -35,9 +35,8 @@ class CreateTableHandler(BaseHandler):
                 raise RuntimeError(f"Unsupport handling {node_type}")
     
     def handle(self, node: CreateTableNode):
-        print("***Call this")
         table_definition_group = self.call_handler(node.table_definition_group)
-        return dict(table_name = node.table_name.expr[1], definition = table_definition_group)
+        return dict(database = node.database.expr[1], table_name = node.table_name.expr[1], definition = table_definition_group)
     
     def handle_table_definition_group_node(self, node: TableDefinitionGroupNode):
         return self.call_handler(node.table_definition_list)
@@ -48,11 +47,9 @@ class CreateTableHandler(BaseHandler):
             if node.right:
                 right_value = self.call_handler(node.right)
                 self.holding_right.append(right_value)
-                print(self.holding_right)
         else:
             left_value = self.call_handler(node.left)
             self.holding_left.append(left_value)
-            print(left_value)
         return self.holding_left + self.holding_right
     
     def handle_table_definition_node(self, node: TableDefinitionNode):

@@ -303,7 +303,6 @@ class Parser:
                 if self.match_token(Token.COMMA):
                     return column_node
                 elif self.match_token(ReservedWord.AS) or self.match_token(Token.IDENTIFIER):
-                    print(f"match AS {self.current_token}" )
                     self.advance_token()
                     column_node.alias = self.current_token
                     self.advance_token()

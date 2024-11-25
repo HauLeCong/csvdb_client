@@ -28,9 +28,10 @@ class SelectNode:
 @dataclass
 class CreateTableNode:
     """
-        `<create_table>` ::= CREATE TABLE `<table_name>` `<table_definition_group>`
+        `<create_table>` ::= CREATE TABLE `database_name`.`<table_name>` `<table_definition_group>`
     """
     type = "Create"
+    database: "DatabaseNode"
     table_name: "TableNameNode"
     table_definition_group: "TableDefinitionGroupNode"
     

@@ -1,10 +1,11 @@
-from .query_engine.parser import Parser, ExecutionPlan
+from .query_engine.parser import Parser
 from .connection import ConnectionIdentity
-from .query_executor import QueryExecutor
 from .transaction_manager import TransactionManager
-from .query_engine.planner import Selection, Production, Projection
+from .query_engine.planner import Selection, Production, Projection, TableCreation
 from .query_engine.ast_node import SelectNode, CreateTableNode
+from .data_storage import FileManager
 from typing import Dict
+from functools import partial
 
 class DBController:
     """
@@ -40,15 +41,31 @@ class DBController:
             query_id (str): a query id point to result of the query, it is not guarantee that the query is execute successful or not
         """
         if con.closed == True:
-            raise SystemError("Cannot operate on closed connection")
+            raise RuntimeError("Cannot operate on closed connection")
         try:
             query_parser = Parser(sql_str)
             ast = query_parser.parse()
+            file_manager = FileManager()
             if isinstance(ast.nodes, SelectNode):
-                plan = Projection(ast.nodes.column_list, Selection(ast.nodes.where_clause, Production())) 
-            query_executor = QueryExecutor()
-            execute_task = query_executor.create_task(con, plan)
-            query_id = self.transaction_manager.add_task_execute(con, execute_task)
+                if ast.nodes.from_clause:
+                    production = Production(ast.nodes.from_clause, partial(file_manager.select_file, con = con))
+                    if ast.nodes.where_clause:
+                        selection = Selection(node = ast.nodes.where_clause.expr, source=production)
+                        plan = partial(Projection, ast.nodes.column_list, selection)
+                        query_id = self.transaction_manager.add_task_execute(con, plan, "query")
+                    else:
+                        selection = Selection(node=None, source=production)
+                        plan = partial(Projection, ast.nodes.column_list, selection) 
+                        query_id = self.transaction_manager.add_task_execute(con, plan, "query")
+                else:
+                    plan = partial(Projection, node = ast.nodes.column_list, source= None)
+                    query_id = self.transaction_manager.add_task_execute(con, plan, "query")
+            elif isinstance(ast.nodes, CreateTableNode):
+                table_creation = TableCreation(ast.nodes)
+                plan = partial(file_manager.create_table_file, con, table_creation.create_database, table_creation.create_table_name, table_creation.create_column_list)
+                query_id = self.transaction_manager.add_task_execute(con, plan, "create")
+            else:
+                raise ValueError(f"Not support query: {sql_str}")
         except Exception as e:
             raise
         return query_id

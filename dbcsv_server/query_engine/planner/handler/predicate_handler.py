@@ -82,7 +82,7 @@ class PredicateHandler(BaseHandler):
             return self.call_handler(node.left)
 
         from .expression_handler import ExpressionHandler
-        expression_handler = ExpressionHandler(self)
+        expression_handler = ExpressionHandler(self._caller)
         left_value = expression_handler.handle(node.left)
         if node.right:
             right_value = expression_handler.handle(node.right)

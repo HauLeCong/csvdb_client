@@ -11,19 +11,33 @@ class Projection:
         This class is mimic Project relatinal algebra
     """
     
-    def __init__(self, node: ColumnListNode, source: Iterator):
+    def __init__(self, node: ColumnListNode, source: Iterator = None):
         self.projection = node
         self.source = source
         self.data = None
-        self.projection_hanlder = ColumnListHandler(self)
         
     def __iter__(self):
         return self
     
     def __next__(self):
-        try:
-            self.data = next(self.source)
-            row_result = self.projection_hanlder.call_handler(self.projection)
+        if not self.source:
+            self.data = None
+            projection_handler = ColumnListHandler(self)
+            row_result = projection_handler.handle(self.projection)
             return row_result
+        try:
+            current_row = next(self.source) 
+            self.data = current_row["data"] 
+            current_predicate = current_row["predicate"]
+            projection_handler = ColumnListHandler(self)
+            row_result = projection_handler.handle(self.projection)
+            if current_predicate:
+                return row_result
+            else:
+                row_result["data"] = ()
+                return row_result
         except StopIteration:
             raise 
+    
+    def __call__(self):
+        return self.__next__()

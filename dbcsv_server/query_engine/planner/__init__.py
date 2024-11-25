@@ -23,6 +23,7 @@ from ..ast_node import (
 from .selection import Selection
 from .projection import Projection
 from .production import Production
+from .table_creation import TableCreation
 
 class QueryPlanner:
     """

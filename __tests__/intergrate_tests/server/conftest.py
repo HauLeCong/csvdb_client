@@ -2,12 +2,12 @@
 import pytest
 from dbcsv_server.connection import ConnectionIdentity
 from dbcsv_server.transaction_manager import TransactionManager
-from dbcsv_server.query_engine.parser import QueryParser
+from dbcsv_server.query_engine.parser import Parser
 from functools import partial
 
 @pytest.fixture
 def con():
-    return ConnectionIdentity("/test_data")
+    return ConnectionIdentity("test_data")
     
 @pytest.fixture
 def transaction_manager():
@@ -22,7 +22,7 @@ class MockQueryParser:
 
 @pytest.fixture
 def mock_parser(request):
-    query_parser = QueryParser(request.param)
+    query_parser = Parser(request.param)
     query_parser.parse_select_clause = MockQueryParser.parse_select_clause
     return query_parser
 

@@ -68,7 +68,9 @@ class ExpressionHandler(BaseHandler):
         if isinstance(value_node.expr, ExprParentNode):
             return self.call_handler(value_node.expr)
         try:
-            return self._caller.data[value_node.expr[1]]
+            if self._caller.data:
+                return self._caller.data[value_node.expr[1]]
+            raise RuntimeError(f"Not found data")
         except KeyError:
             raise RuntimeError(f"Column {value_node.expr[1]} not found")
     
