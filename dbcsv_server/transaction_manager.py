@@ -3,6 +3,9 @@ from datetime import datetime, timezone
 from typing import Dict, Iterator
 
 class DataResult:  
+    """
+        Result wraper for query result
+    """
     def __init__(self, data: Iterator):
         self.data = data
         self.current_row = None
@@ -12,6 +15,13 @@ class DataResult:
         return self
     
     def __next__(self):
+        """
+        Return data row by row, if a row is blank skip to next 
+        if still nothing return a blank tuple then StopIteration on the next round
+        Returns:
+            description: a tuple of columns for client
+            result_row: a result row of query data
+        """
         try:
             self.current_row = next(self.data)
             if len(self.current_row["data"]) > 0:
@@ -26,7 +36,7 @@ class DataResult:
         
 class TransactionManager:
     """
-    A class to handle query executor result and query
+    A class to handle result and return query id
     """
 
     def __init__(self):
@@ -34,9 +44,14 @@ class TransactionManager:
         
     @property
     def task_list(self) -> dict:
+        """To keep track of all tasks that executed"""
         return self._task_list
     
     def add_task_execute(self, con: ConnectionIdentity, task, task_type) -> str:
+        """
+            Add task to task list and executed, if succeed return query id
+        
+        """
         if con.closed == True:
             raise SystemError("Cannot operate on closed connection")
         try:

@@ -29,6 +29,9 @@ class Production:
             raise e
         
     def _apply_metadata(self, result_row) -> List[Dict]:
+        """
+        Apply metdata column type for each columns 
+        """
         for r in self.meta:
             match r["column_type"]:
                 case "STRING":

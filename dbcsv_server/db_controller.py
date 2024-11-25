@@ -29,7 +29,7 @@ class DBController:
         Args:
             con (ConnectionIdentity):
         """
-        con.delete()
+        con.close()
         
     def execute_query(self, con: ConnectionIdentity, sql_str: str) -> str:
         """
