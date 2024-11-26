@@ -6,9 +6,12 @@ from dbcsv_server.query_engine.planner.table_creation import TableCreation
 from pathlib import Path
 import pytest
 
-@pytest.mark.parametrize("valid_query", ["CREATE TABLE A.T (col1 STRING, col2 STRING, col3 INT)"])
+
+@pytest.mark.parametrize(
+    "valid_query", ["CREATE TABLE A.T (col1 STRING, col2 STRING, col3 INT)"]
+)
 def test_create_file_on_create_query(valid_query):
-    con = ConnectionIdentity(Path("data/storage"))
+    con = ConnectionIdentity()
     file_manager = FileManager()
     parser = Parser(valid_query)
     ast_nodes = parser.parse()
@@ -17,7 +20,13 @@ def test_create_file_on_create_query(valid_query):
     columns_definition = table_creation.get_create_column_list()
     table_name = table_creation.get_create_table_name()
     assert table_name == "T"
-    assert columns_definition == [{"column_name": "COL1", "column_type": "STRING"}, {"column_name": "COL2", "column_type": "STRING"}, {"column_name": "COL3", "column_type":"INT"}]
-    result_file = file_manager.create_table_file(con, database, table_name, columns_definition)
+    assert columns_definition == [
+        {"column_name": "COL1", "column_type": "STRING"},
+        {"column_name": "COL2", "column_type": "STRING"},
+        {"column_name": "COL3", "column_type": "INT"},
+    ]
+    result_file = file_manager.create_table_file(
+        con, database, table_name, columns_definition
+    )
     assert result_file.exists()
     data_select = file_manager.select_file(con, database, table_name)

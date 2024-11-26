@@ -1,4 +1,5 @@
-# from .dbapi2 import co
+from dbcsv_server.server import app
+import uvicorn
 
-import sqlite3
-import inspect
+if __name__ == "__main__":
+    uvicorn.run(app, host="127.0.0.1")
