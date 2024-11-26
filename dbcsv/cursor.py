@@ -1,6 +1,7 @@
 from collections.abc import Iterator, Iterable
 from typing import LiteralString, Self, List, Tuple
 from .exceptions import *
+from .encoder import Encoder
 
 
 class Cursor(Iterator):
@@ -86,8 +87,16 @@ class Cursor(Iterator):
         """
         self._closed = 1
 
-    def _prepare_query_param(self, sql: str, params: Iterable) -> str:
-        pass
+    def _prepare_query_param(self, query: str, params: Iterable = None) -> str:
+        encoder = Encoder()
+        if not params:
+            return query
+        if isinstance(params, (tuple, list)):
+            esc_params = tuple(encoder.escape_item(param) for param in params)
+        elif isinstance(params, dict):
+            esc_params = {k: encoder.escape_item(v) for (k, v) in params.items()}
+
+        return query % esc_params
 
     def execute(self, sql: LiteralString, parameters: Iterable = None) -> Self:
         if self._closed == 1:
@@ -97,7 +106,7 @@ class Cursor(Iterator):
             raise TypeError("Query must be a string")
 
         if parameters and not isinstance(parameters, Iterable):
-            raise ValueError("Parameters must be interable: tuple, list or Row")
+            raise ValueError("Parameters must be interable: tuple, list or dict")
 
         # Prepare parameter
         sql_str = self._prepare_query_param(sql, parameters)
@@ -114,9 +123,7 @@ class Cursor(Iterator):
 
         return Cursor(self.connection, self._data, self._description)
 
-    def executemany(
-        self, sqls: List[LiteralString], parameters: Iterable[str] = None
-    ):
+    def executemany(self, sqls: List[LiteralString], parameters: Iterable[str] = None):
         """
         Prepare a database operation (query or command) and then execute it against all parameter sequences or mappings found in the sequence seq_of_parameters.
         Modules are free to implement this method using multiple calls to the .execute() method or by using array operations to have the database process the sequence as a whole in one call.

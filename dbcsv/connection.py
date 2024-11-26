@@ -23,6 +23,7 @@ class Connection:
         self.host = host
         self._closed = 0
         self._row_count = -1
+        self._connection_id = self._connect_server()
 
     @property
     def closed(self):
@@ -71,6 +72,11 @@ class Connection:
             raise ProgramingError("Cannot operate on closed connection.")
         cursor = Cursor(self)
         return cursor
+
+    def _connect_server(self):
+        response = requests.get("http://127.0.0.1:8000/connect")
+        data = response.json()
+        return data["connection_id"]
 
     def _execute_sql(self, query: str) -> None:
         """

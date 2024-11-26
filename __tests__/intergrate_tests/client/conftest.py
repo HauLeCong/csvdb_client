@@ -4,6 +4,9 @@ import time
 import pandas as pd
 import os
 import requests
+from dbcsv_server.server import app
+from fastapi.testclient import TestClient
+from dbcsv.connection import Connection
 
 
 def pytest_itemcollected(item):
@@ -127,6 +130,7 @@ class MockResponseSelect:
                 "column 3": {"name": "column 3", "type": "string"},
             },
         }
+
 
 class MockResponseCreateTable:
     @staticmethod

@@ -122,9 +122,7 @@ def test_rollback_on_closed_connection(
 
 
 @pytest.mark.skip("Wait api for API implemention")
-def test_commit_insert_data(
-    dbapi2_connection1, dbapi2_connection2, mock_insert_data
-):
+def test_commit_insert_data(dbapi2_connection1, dbapi2_connection2, mock_insert_data):
     """
     12. User commit insert transaction
     test_commit_insert_data()
@@ -150,9 +148,7 @@ def test_havent_commit_insert_data(
     test_uncommit_insert_data()
     """
     cursor = dbapi2_connection1.cursor()
-    cursor.execute(
-        """Insert into test values(?) where id = ?""", mock_insert_data
-    )
+    cursor.execute("""Insert into test values(?) where id = ?""", mock_insert_data)
     # Autoo commit = T|F
     cursor2 = dbapi2_connection2.cursor()
     cursor2.execute("Select * from test_table where id = ?", (id,))
@@ -201,4 +197,9 @@ def test_rollback_insert_data():
     assert False, "Not implemented"
 
 
-# If rollback can't commit anymore
+def test_get_connection_id_on_connect():
+    import requests
+
+    rs = requests.get("http://127.0.0.1/connect")
+    data = rs.json()
+    assert data
