@@ -81,3 +81,12 @@ def mock_create_table():
         r.write("COL3,FLOAT\r\n")
     yield
     rm_rf(Path() / "TEST_DATABASE")
+
+
+from dbcsv_server.server import app
+from fastapi.testclient import TestClient
+
+@pytest.fixture
+def mock_client():
+    client = TestClient(app)
+    return client

@@ -10,6 +10,7 @@ class DataResult:
         self.data = data
         self.current_row = None
         self.current_row_return = 0
+        self.description = None
         
     def __iter__(self):
         return self
