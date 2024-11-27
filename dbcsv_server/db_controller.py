@@ -4,9 +4,12 @@ from .transaction_manager import TransactionManager
 from .query_engine.planner import Selection, Production, Projection, TableCreation
 from .query_engine.ast_node import SelectNode, CreateTableNode
 from .data_storage import FileManager
-from typing import Dict
+from typing import TypedDict
 from functools import partial
 
+class FectDataReturn(TypedDict):
+    data: tuple
+    description: tuple
 
 class DBController:
     """
@@ -53,6 +56,9 @@ class DBController:
             query_parser = Parser(sql_str)
             ast = query_parser.parse()
             file_manager = FileManager()
+            # ***Need to implement: add an abstract class to handle all node
+            
+            #
             if isinstance(ast.nodes, SelectNode):
                 if ast.nodes.from_clause:
                     production = Production(
@@ -96,7 +102,7 @@ class DBController:
             raise
         return query_id
 
-    def fetch_next(self, con_id: str, query_id: str) -> Dict:
+    def fetch_result(self, con_id: str, query_id: str, num_record: int) -> TypedDict:
         """
         Return a next row of a query result
         Args:
@@ -106,7 +112,7 @@ class DBController:
         Returns:
             Dict:
         """
-        con = self._con_list.get(con_id)
+        con = self._con_list.get(con_id) 
         try:
             return {
                 "data": next(con.query_result[query_id]["result"]),

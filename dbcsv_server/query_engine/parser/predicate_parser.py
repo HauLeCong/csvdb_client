@@ -101,9 +101,6 @@ class PredicateParser:
             return predicate_parent
         else:
             current_left = self._caller.parse_expr()
-            # PredicateCompareNode(
-            #     left=self._caller.parse_expr(), right=None, operator=None
-            # )
             if self._caller.current_token and (
                 self._caller.match_token(Token.EQUAL)
                 or self._caller.match_token(Token.GREATER_THAN)
