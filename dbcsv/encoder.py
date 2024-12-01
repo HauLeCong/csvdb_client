@@ -35,7 +35,7 @@ class Encoder:
     def _escape_int(self, int_val):
         return str(int_val)
 
-    def _escape_none(self):
+    def _escape_none(self, none_val):
         return "NULL"
 
     def _escape_float(self, float_val):

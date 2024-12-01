@@ -7,9 +7,11 @@ from .data_storage import FileManager
 from typing import TypedDict
 from functools import partial
 
-class FectDataReturn(TypedDict):
+
+class FetchedData(TypedDict):
     data: tuple
     description: tuple
+
 
 class DBController:
     """
@@ -57,7 +59,7 @@ class DBController:
             ast = query_parser.parse()
             file_manager = FileManager()
             # ***Need to implement: add an abstract class to handle all node
-            
+
             #
             if isinstance(ast.nodes, SelectNode):
                 if ast.nodes.from_clause:
@@ -102,7 +104,7 @@ class DBController:
             raise
         return query_id
 
-    def fetch_result(self, con_id: str, query_id: str, num_record: int) -> TypedDict:
+    def fetch_result(self, con_id: str, query_id: str, num_record: int) -> FetchedData:
         """
         Return a next row of a query result
         Args:
@@ -112,7 +114,7 @@ class DBController:
         Returns:
             Dict:
         """
-        con = self._con_list.get(con_id) 
+        con = self._con_list.get(con_id)
         try:
             return {
                 "data": next(con.query_result[query_id]["result"]),

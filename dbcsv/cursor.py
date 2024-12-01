@@ -98,21 +98,21 @@ class Cursor(Iterator):
 
         return query % esc_params
 
-    def execute(self, sql: LiteralString, parameters: Iterable = None) -> Self:
+    def execute(self, query: LiteralString, params: Iterable = None) -> Self:
         if self._closed == 1:
             raise ProgramingError("Cannot operate on a closed cursor.")
 
-        if not isinstance(sql, str):
+        if not isinstance(query, str):
             raise TypeError("Query must be a string")
 
-        if parameters and not isinstance(parameters, Iterable):
+        if params and not isinstance(params, Iterable):
             raise ValueError("Parameters must be interable: tuple, list or dict")
 
         # Prepare parameter
-        sql_str = self._prepare_query_param(sql, parameters)
+        query_f = self._prepare_query_param(query, params)
         # Execute query -> get result
         try:
-            response = self.connection._execute_sql(sql_str)
+            response = self.connection._execute_sql(query_f)
             self._data = response["data"]
             self._current_row = None
             self._current_index = 0
